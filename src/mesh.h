@@ -16,6 +16,8 @@
    | 16\ | 18 \ | 20\ | 22\ |
    | --- |  --- | --- | --- |
 
+   The mesh is physically square, L = W = 1.0. Therefore any PDE solved on this mesh should generate approximately the same solution, regardless of input, modulo of course numerical error
+
 */
 class SquareTriCSRMesh
 {
@@ -32,5 +34,6 @@ private:
     class CSR;
 
     int _nCols, _nRows;
+
     std::unique_ptr<CSR> _csr;
 };

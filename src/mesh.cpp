@@ -89,19 +89,14 @@ void SquareTriCSRMesh::setIndices()
             int upper = 2*(i*_nCols + j) + 1;
 
             csr.setDispl(lower, displ);
-                               csr.setNbr(displ++, lower + 1);
             if (j != 0)        csr.setNbr(displ++, lower - 1);
+                               csr.setNbr(displ++, lower + 1);
             if (i != _nRows-1) csr.setNbr(displ++, lower + (2 * _nCols + 1));
 
-            std::cout << "Did lower " << lower << "\n";
-
-
             csr.setDispl(upper, displ);
-            if (j != _nCols-1) csr.setNbr(displ++, upper + 1);
                                csr.setNbr(displ++, upper - 1);
+            if (j != _nCols-1) csr.setNbr(displ++, upper + 1);
             if (i != 0)        csr.setNbr(displ++, upper - (2 * _nCols + 1));
-
-            std::cout << "Did upper " << upper << "\n";
         }
     }
 
