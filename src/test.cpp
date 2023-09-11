@@ -1,4 +1,4 @@
-#include "mesh.h"
+#include "SquareTriCSRMesh.h"
 #include <iostream>
 
 #define TEST_VALUE(a,b)\
@@ -56,6 +56,8 @@ int testMesh()
 
     auto nbr16 = mesh.getNbr(16);
     TEST_VALUE(nbr16[0], 17);
+
+    mesh.printBoundary();
 
     return 0;
 }

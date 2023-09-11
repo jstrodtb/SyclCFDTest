@@ -28,8 +28,12 @@ public:
     std::span<int> getNbr(int i);
 //    { return std::span<int>(_csr->_nbr); }
 
+    void printBoundary();
+
 private:
+    //Called only in ctor
     void setIndices();
+    void setBoundary();
 
     class CSR;
 
