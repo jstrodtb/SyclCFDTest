@@ -19,14 +19,13 @@
    The mesh is physically square, L = W = 1.0. Therefore any PDE solved on this mesh should generate approximately the same solution, regardless of input, modulo of course numerical error
 
 */
-class SquareTriCSRMesh
+class SquareTriCSRMesh : public CSRRep2D
 {
 public:
     SquareTriCSRMesh(int nRows, int nCols);
     ~SquareTriCSRMesh();
 
     std::span<int> getNbr(int i);
-//    { return std::span<int>(_csr->_nbr); }
 
     void printBoundary();
 
@@ -39,5 +38,5 @@ private:
 
     int _nCols, _nRows;
 
-    std::unique_ptr<CSR> _csr;
+//    std::unique_ptr<CSR> _csr;
 };

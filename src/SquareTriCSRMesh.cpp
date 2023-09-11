@@ -11,7 +11,8 @@ class SquareTriCSRMesh::CSR
     public:
     CSR(int size) : 
     _nbrDispl(size + 1),
-    _area(size)
+    _area(size),
+    _centroid(size)
     {}
 
     void setNbrSize(int size)
@@ -31,6 +32,13 @@ class SquareTriCSRMesh::CSR
 
     void inline setArea(int i, float area)
     { _area[i] = area; }
+
+    void inline setCentroid(int i, std::array<float,2> const &xy)
+    { _centroid[i] = xy; }
+
+    std::array<float,2> const inline &getCentroid(int i)
+    { return _centroid[i]; }
+
 
 
     /// @brief Returns total number of cells in the CSR rep 
@@ -98,6 +106,7 @@ private:
 
     std::vector<float> _length;
     std::vector<float> _area;
+    std::vector<std::array<float,2>> _centroid;
 
     std::vector<int>   _bCell;
     std::vector<int>   _bDispl;
