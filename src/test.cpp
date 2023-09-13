@@ -22,27 +22,31 @@ int testMesh()
     /*
        Build this mesh:
 
-       | \ 1 |  \ 3 | \ 5 | \ 7 |
-       | 0 \ | 2  \ | 4 \ | 6 \ |
-       | --- |  --- | --- | --- |
-       | \ 9 |  \ 11| \ 13| \ 15|
-       | 8 \ | 10 \ | 12\ | 14\ |
-       | --- |  --- | --- | --- |
-       | \ 17|  \ 19| \ 21| \ 23|
-       | 16\ | 18 \ | 20\ | 22\ |
-       | --- |  --- | --- | --- |
+         24    25    26    27
+       | \ 1 | \ 3 | \ 5 | \ 7 |
+    28 | 0 \ | 2 \ | 4 \ | 6 \ | 29
+       | --- | --- | --- | --- |
+       | \ 9 | \ 11| \ 13| \ 15|
+    30 | 8 \ | 10\ | 12\ | 14\ | 31
+       | --- | --- | --- | --- |
+       | \ 17| \ 19| \ 21| \ 23|
+    32 | 16\ | 18\ | 20\ | 22\ | 33
+       | --- | --- | --- | --- |
+         34    35     36    37
 
     */
 
     SquareTriCSRMesh mesh(3, 4);
 
     auto nbr0 = mesh.getNbr(0);
-    TEST_VALUE(nbr0[0], 1);
-    TEST_VALUE(nbr0[1], 9);
+    TEST_VALUE(nbr0[0], 28);
+    TEST_VALUE(nbr0[1], 1);
+    TEST_VALUE(nbr0[2], 9);
 
     auto nbr18 = mesh.getNbr(18);
     TEST_VALUE(nbr18[0], 17);
     TEST_VALUE(nbr18[1], 19);
+    TEST_VALUE(nbr18[2], 35);
 
     auto nbr11 = mesh.getNbr(11);
     TEST_VALUE(nbr11[0], 10);
@@ -55,7 +59,9 @@ int testMesh()
     TEST_VALUE(nbr12[2], 21);
 
     auto nbr16 = mesh.getNbr(16);
-    TEST_VALUE(nbr16[0], 17);
+    TEST_VALUE(nbr16[0], 32);
+    TEST_VALUE(nbr16[1], 17);
+    TEST_VALUE(nbr16[2], 34);
 
     mesh.printBoundary();
 

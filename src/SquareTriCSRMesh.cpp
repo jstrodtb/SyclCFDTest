@@ -6,10 +6,11 @@
 #include <iostream>
 #include <cmath>
 
-class SquareTriCSRMesh::CSR
+/*
+class SquareTriCSRMesh : public CSRRep2D
 {
     public:
-    CSR(int size) : 
+    CSRRep2D(int size) : 
     _nbrDispl(size + 1),
     _area(size),
     _centroid(size)
@@ -112,27 +113,33 @@ private:
     std::vector<int>   _bDispl;
     std::vector<float> _bLength;
 };
+*/
 
 
 /*
-   Mesh of triangles on a square for some reason. Stored in CSR format for edutainment purposes. Grid looks like this for 4x3:
+   Mesh of triangles on a square for some reason. Stored in CSR format 
+   for edutainment purposes. Grid looks like this for 4x3, with ghost
+   cells 23 - 36:
   
-
-   | \ 1 |  \ 3 | \ 5 | \ 7 |
-   | 0 \ | 2  \ | 4 \ | 6 \ |
-   | --- |  --- | --- | --- |
-   | \ 9 |  \ 11| \ 13| \ 15|
-   | 8 \ | 10 \ | 12\ | 14\ |
-   | --- |  --- | --- | --- |
-   | \ 17|  \ 19| \ 21| \ 23|
-   | 16\ | 18 \ | 20\ | 22\ |
-   | --- |  --- | --- | --- |
-
+         24    25    26    27
+       | \ 1 | \ 3 | \ 5 | \ 7 |
+    28 | 0 \ | 2 \ | 4 \ | 6 \ | 29
+       | --- | --- | --- | --- |
+       | \ 9 | \ 11| \ 13| \ 15|
+    30 | 8 \ | 10\ | 12\ | 14\ | 31
+       | --- | --- | --- | --- |
+       | \ 17| \ 19| \ 21| \ 23|
+    32 | 16\ | 18\ | 20\ | 22\ | 33
+       | --- | --- | --- | --- |
+         34    35     36    37
 */
 /**
  * ctor
 */
-SquareTriCSRMesh::SquareTriCSRMesh(int nRows, int nCols) : _nCols(nCols), _nRows(nRows), _csr(new CSR(_nCols * _nRows * 2))
+SquareTriCSRMesh::SquareTriCSRMesh(int nRows, int nCols) : 
+CSRRep2D(2*nRows*nCols, 2*(nRows+nCols), 6*nRows*nCols),
+_nRows(nRows),
+_nCols(nCols) 
 {
     if (_nCols < 3 || _nRows <  3)
     {
@@ -149,16 +156,23 @@ SquareTriCSRMesh::~SquareTriCSRMesh() {}
 
 void SquareTriCSRMesh::setIndices()
 {
-    auto &csr = *(_csr.get());
+//    auto &csr = *(_csr.get());
 
-    csr.setNbrSize(3*csr.size());
+//    csr.setNbrSize(3*csr.size());
 
-    int displ = 0;
+    int32_t displ = 0;
+    int32_t const totCells = 2*_nRows*_nCols;
 
     float const length = 1.0 / _nRows;
     float const width  = 1.0 / _nCols;
     float const hyp    = sqrt(length * length + width * width);
-    float area = 0.5 * length * width;
+    float const area = 0.5 * length * width;
+    
+    //Lambdas for getting the ghost point indices
+    auto lGhost = [&](int32_t row){ return totCells + _nCols + 2*row; };
+    auto rGhost = [&](int32_t row){ return totCells + _nCols + 2*row + 1; };
+    auto uGhost = [&](int32_t col){ return totCells +  col; };
+    auto dGhost = [&](int32_t col){ return totCells + _nCols + 2*_nRows + col; };
 
     //Sets displacements and neighbor indices in a highly ineffecient way
     //that can in no way be parallelized. 
@@ -166,29 +180,38 @@ void SquareTriCSRMesh::setIndices()
     {
         for (int j = 0; j < _nCols; ++j)
         {
-            int lower = 2*(i*_nCols + j);
-            int upper = 2*(i*_nCols + j) + 1;
+            int const lower = 2*(i*_nCols + j);
+            int const upper = 2*(i*_nCols + j) + 1;
 
-            csr.setArea(lower, area);
-            csr.setDispl(lower, displ);
-            if (j != 0)        csr.setNbr(displ++, lower - 1, length);
-                               csr.setNbr(displ++, lower + 1, hyp);
-            if (i != _nRows-1) csr.setNbr(displ++, lower + (2 * _nCols + 1), width);
+            this->setArea(lower, area);
+            this->setDispl(lower, displ);
 
-            csr.setArea(upper, area);
-            csr.setDispl(upper, displ);
-                               csr.setNbr(displ++, upper - 1, hyp);
-            if (j != _nCols-1) csr.setNbr(displ++, upper + 1, length);
-            if (i != 0)        csr.setNbr(displ++, upper - (2 * _nCols + 1), width);
+            if (j != 0)        this->setNbr(displ++, lower - 1, length);
+            else               this->setNbr(displ++, lGhost(i), length);
+                               this->setNbr(displ++, lower + 1, hyp);
+            if (i != _nRows-1) this->setNbr(displ++, lower + (2 * _nCols + 1), width);
+            else               this->setNbr(displ++, dGhost(j), width);
+
+            this->setArea(upper, area);
+            this->setDispl(upper, displ);
+                               this->setNbr(displ++, upper - 1, hyp);
+            if (j != _nCols-1) this->setNbr(displ++, upper + 1, length);
+            else               this->setNbr(displ++, rGhost(i), length);
+            if (i != 0)        this->setNbr(displ++, upper - (2 * _nCols + 1), width);
+            else               this->setNbr(displ++, uGhost(j), width);
         }
     }
 
+/*
     //Cap
     csr.setDispl(2*_nRows * _nCols, displ);
+*/
 }
 
 void SquareTriCSRMesh::setBoundary()
 {
+    /*
+
     //Total boundary cells = 2 * _nCols + 2 * (_nRows - 1)
     //Two corner cells, so total boundary edges = 2 * _nCols + 2 * _nRows;
 
@@ -242,10 +265,13 @@ void SquareTriCSRMesh::setBoundary()
 
     //Cap
     _csr->setBoundaryCell(iBCell++, -1, displ);
+    */
 }
 
+/*
 std::span<int> SquareTriCSRMesh::getNbr(int i)
-{ return _csr->getNbr(i); }
+{ return getNbr(i); }
+*/
 
 void SquareTriCSRMesh::printBoundary()
-{ _csr->printBoundary(); }
+{  /*_csr->printBoundary();*/ }

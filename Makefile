@@ -10,7 +10,7 @@ cuda:
 
 test-cuda:
 	echo "Building test"
-	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda -DSYCL_USE_NATIVE_FP_ATOMICS ./src/test.cpp ./src/SquareTriCSRMesh.cpp  -o ./bin/test-cuda
+	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda -DSYCL_USE_NATIVE_FP_ATOMICS ./src/test.cpp ./src/CSRRep2D.cpp ./src/SquareTriCSRMesh.cpp  -o ./bin/test-cuda
 
 test-sycl:
 	echo "Building test"

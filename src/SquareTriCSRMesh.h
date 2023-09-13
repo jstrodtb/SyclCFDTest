@@ -1,3 +1,5 @@
+#include "CSRRep2D.h"
+
 #include <memory>
 #include <span>
 
@@ -24,8 +26,6 @@ class SquareTriCSRMesh : public CSRRep2D
 public:
     SquareTriCSRMesh(int nRows, int nCols);
     ~SquareTriCSRMesh();
-
-    std::span<int> getNbr(int i);
 
     void printBoundary();
 
