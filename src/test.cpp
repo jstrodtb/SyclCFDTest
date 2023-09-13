@@ -63,7 +63,14 @@ int testMesh()
     TEST_VALUE(nbr16[1], 17);
     TEST_VALUE(nbr16[2], 34);
 
-    mesh.printBoundary();
+    auto nbr23 = mesh.getNbr(23);
+    TEST_VALUE(nbr23[0], 22);
+    TEST_VALUE(nbr23[1], 33);
+    TEST_VALUE(nbr23[2], 14);
+
+
+
+    mesh.printMatrix();
 
     return 0;
 }

@@ -156,10 +156,6 @@ SquareTriCSRMesh::~SquareTriCSRMesh() {}
 
 void SquareTriCSRMesh::setIndices()
 {
-//    auto &csr = *(_csr.get());
-
-//    csr.setNbrSize(3*csr.size());
-
     int32_t displ = 0;
     int32_t const totCells = 2*_nRows*_nCols;
 
@@ -199,13 +195,15 @@ void SquareTriCSRMesh::setIndices()
             else               this->setNbr(displ++, rGhost(i), length);
             if (i != 0)        this->setNbr(displ++, upper - (2 * _nCols + 1), width);
             else               this->setNbr(displ++, uGhost(j), width);
-        }
+
+       }
     }
 
-/*
     //Cap
-    csr.setDispl(2*_nRows * _nCols, displ);
-*/
+    setDispl(2*_nRows * _nCols, displ);
+
+     
+
 }
 
 void SquareTriCSRMesh::setBoundary()
@@ -273,5 +271,27 @@ std::span<int> SquareTriCSRMesh::getNbr(int i)
 { return getNbr(i); }
 */
 
-void SquareTriCSRMesh::printBoundary()
-{  /*_csr->printBoundary();*/ }
+void SquareTriCSRMesh::printMatrix()
+{
+    for (int i = 0; i < _nRows; ++i)
+    {
+        for (int j = 0; j < _nCols; ++j)
+        {
+            int const lower = 2 * (i * _nCols + j);
+            int const upper = 2 * (i * _nCols + j) + 1;
+
+            auto nbrl = getNbr(lower);
+            auto nbru = getNbr(upper);
+
+            std::cout << lower << ": ";
+            for (auto i : nbrl)
+                std::cout << i << " ";
+            std::cout << "\n";
+
+            std::cout << upper << ": ";
+            for (auto i : nbru)
+                std::cout << i << " ";
+            std::cout << "\n";
+        }
+    }
+}

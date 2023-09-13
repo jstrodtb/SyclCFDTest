@@ -27,7 +27,7 @@ public:
     SquareTriCSRMesh(int nRows, int nCols);
     ~SquareTriCSRMesh();
 
-    void printBoundary();
+    void printMatrix();
 
 private:
     //Called only in ctor
