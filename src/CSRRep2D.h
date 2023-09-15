@@ -1,3 +1,5 @@
+#pragma once
+
 #include <span>
 #include <cstdint>
 #include <memory>
@@ -21,15 +23,6 @@ public:
 
     ~CSRRep2D();
 
-    void setDispl(int32_t cell, int32_t displ);
-
-    // Can only be called after displacements are filled
-    void setArea(int32_t cell, float area);
-
-    void setNbr(int32_t displ, int32_t nbrCell, float length);
-
-    void setCentroid(int cell, float x, float y);
-
     std::span<int32_t> getNbr(int32_t cell) const;
 
     // These are the main working cells
@@ -47,16 +40,51 @@ private:
    struct Data;
    std::unique_ptr<Data> _data;
 
-   struct SyclBuffer
+   struct Buffer
    {
-    sycl::buffer<float> _area;
-    sycl::buffer<int32_t> _displ;
-    sycl::buffer<std::array<float,2>> _centroid;
+       sycl::buffer<float> _area;
+       sycl::buffer<int32_t> _displ;
+       sycl::buffer<sycl::vec<float, 2>> _centroid;
 
-//Edge data
-    sycl::buffer<float> _length;
-    sycl::buffer<int32_t> _nbrCell;
+       // Edge data
+       sycl::buffer<float> _length;
+       sycl::buffer<int32_t> _nbrCell;
    };
 
-   SyclBuffer _buf;
+
+public:
+   static auto constexpr write = sycl::access::mode::write;
+
+   template<typename T> 
+   using writeAccessor = decltype(std::declval<sycl::buffer<T>>().template get_access<write>(static_cast<sycl::handler &>(std::declval<sycl::handler &>())));
+
+    class Write
+    {
+    public:
+        Write(Buffer &buf, sycl::handler &h);
+        void setDispl(int32_t cell, int32_t displ);
+
+        // Can only be called after displacements are filled
+        void setArea(int32_t cell, float area);
+
+        void setNbr(int32_t displ, int32_t nbrCell, float length);
+
+        void setCentroid(int cell, float x, float y);
+
+    private:
+        writeAccessor<float> _area;
+        writeAccessor<int32_t> _displ;
+        writeAccessor<sycl::vec<float, 2>> _centroid;
+
+        writeAccessor<float> _length;
+        writeAccessor<int32_t> _nbrCell;
+    };
+
+    friend CSRRep2D::Write writeAccess(CSRRep2D &csr, sycl::handler &h);
+
+protected:
+   Buffer _buf;
 };
+
+
+CSRRep2D::Write writeAccess(CSRRep2D &csr, sycl::handler &h);

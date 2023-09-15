@@ -56,6 +56,7 @@ void SquareTriCSRMesh::setIndices()
 
     sycl::queue q(sycl::cpu_selector_v);
 
+    q.submit([&](sycl::handler &h)
     {
         int32_t displ = 0;
         int32_t const totCells = 2 * _nRows * _nCols;
@@ -64,8 +65,8 @@ void SquareTriCSRMesh::setIndices()
         float const width = 1.0 / _nCols;
         float const hyp = sqrt(height * height + width * width);
         float const area = 0.5 * height * width;
-        std::array<float, 2> const lCentroid = {width / 3.0f, height / 3.0f};
-        std::array<float, 2> const uCentroid = {2.0f * width / 3.0f, 2.0f * height / 3.0f};
+        sycl::vec<float, 2> const lCentroid = {width / 3.0f, height / 3.0f};
+        sycl::vec<float, 2> const uCentroid = {2.0f * width / 3.0f, 2.0f * height / 3.0f};
 
         // Lambdas for getting the ghost point indices
         auto lGhost = [&](int32_t row)
@@ -77,6 +78,8 @@ void SquareTriCSRMesh::setIndices()
         auto dGhost = [&](int32_t col)
         { return totCells + _nCols + 2 * _nRows + col; };
 
+        Write csrWrite(_buf, h);
+
         // Sets displacements and neighbor indices in a highly ineffecient way
         // that can in no way be parallelized.
         for (int i = 0; i < _nRows; ++i)
@@ -86,39 +89,39 @@ void SquareTriCSRMesh::setIndices()
                 int const lower = 2 * (i * _nCols + j);
                 int const upper = 2 * (i * _nCols + j) + 1;
 
-                this->setArea(lower, area);
-                this->setDispl(lower, displ);
-                this->setCentroid(lower, j * width + lCentroid[0], i * height + lCentroid[1]);
+                csrWrite.setArea(lower, area);
+                csrWrite.setDispl(lower, displ);
+                csrWrite.setCentroid(lower, j * width + lCentroid[0], i * height + lCentroid[1]);
 
                 if (j != 0)
-                    this->setNbr(displ++, lower - 1, height);
+                    csrWrite.setNbr(displ++, lower - 1, height);
                 else
-                    this->setNbr(displ++, lGhost(i), height);
-                this->setNbr(displ++, lower + 1, hyp);
+                    csrWrite.setNbr(displ++, lGhost(i), height);
+                csrWrite.setNbr(displ++, lower + 1, hyp);
                 if (i != _nRows - 1)
-                    this->setNbr(displ++, lower + (2 * _nCols + 1), width);
+                    csrWrite.setNbr(displ++, lower + (2 * _nCols + 1), width);
                 else
-                    this->setNbr(displ++, dGhost(j), width);
+                    csrWrite.setNbr(displ++, dGhost(j), width);
 
-                this->setArea(upper, area);
-                this->setDispl(upper, displ);
-                this->setCentroid(upper, j * width + uCentroid[0], i * height + uCentroid[1]);
+                csrWrite.setArea(upper, area);
+                csrWrite.setDispl(upper, displ);
+                csrWrite.setCentroid(upper, j * width + uCentroid[0], i * height + uCentroid[1]);
 
-                this->setNbr(displ++, upper - 1, hyp);
+                csrWrite.setNbr(displ++, upper - 1, hyp);
                 if (j != _nCols - 1)
-                    this->setNbr(displ++, upper + 1, height);
+                    csrWrite.setNbr(displ++, upper + 1, height);
                 else
-                    this->setNbr(displ++, rGhost(i), height);
+                    csrWrite.setNbr(displ++, rGhost(i), height);
                 if (i != 0)
-                    this->setNbr(displ++, upper - (2 * _nCols + 1), width);
+                    csrWrite.setNbr(displ++, upper - (2 * _nCols + 1), width);
                 else
-                    this->setNbr(displ++, uGhost(j), width);
+                    csrWrite.setNbr(displ++, uGhost(j), width);
             }
         }
 
         // Cap
-        setDispl(2 * _nRows * _nCols, displ);
-    }
+        csrWrite.setDispl(2 * _nRows * _nCols, displ);
+    });
 }
 
 void SquareTriCSRMesh::setBoundary()

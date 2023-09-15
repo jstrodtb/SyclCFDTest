@@ -23,7 +23,7 @@ struct CSRRep2D::Data{
 //Cell data
     std::vector<float> _area;
     std::vector<int32_t> _displ;
-    std::vector<std::array<float,2>> _centroid;
+    std::vector<sycl::vec<float,2>> _centroid;
 
 //Edge data
     std::vector<float> _length;
@@ -50,13 +50,6 @@ _buf{
 //dtor
 CSRRep2D::~CSRRep2D() {}
 
-//Writer
-
-void CSRRep2D::setDispl(int32_t cell, int32_t displ)
-{
-    _data->_displ[cell] = displ;
-}
-
 /*
  * Getters
 */
@@ -81,21 +74,40 @@ std::span<int32_t> CSRRep2D::getNbr(int32_t cell) const
 /*
 * Setters
 */
+CSRRep2D::Write::
+Write(Buffer &buf, sycl::handler &h) 
+: _area(buf._area.get_access<write>(h)),
+  _displ(buf._displ.get_access<write>(h)),
+  _centroid(buf._centroid.get_access<write>(h)),
+  _length(buf._length.get_access<write>(h)),
+  _nbrCell(buf._nbrCell.get_access<write>(h))
 
-void CSRRep2D::setArea(int32_t cell, float area)
 {
-
-    _data->_area[cell] = area;
 }
 
-void CSRRep2D::setNbr(int32_t displ, int32_t nbrCell, float length)
+void CSRRep2D::Write::setDispl(int32_t cell, int32_t displ)
 {
-    _data->_nbrCell[displ] = nbrCell;
-    _data->_length[displ] = length;
+    _displ[cell] = displ;
 }
 
-void CSRRep2D::setCentroid(int cell, float x, float y)
+void CSRRep2D::Write::setArea(int32_t cell, float area)
 {
-    _data->_centroid[cell] = {x,y};
+
+    _area[cell] = area;
 }
 
+void CSRRep2D::Write::setNbr(int32_t displ, int32_t nbrCell, float length)
+{
+    _nbrCell[displ] = nbrCell;
+    _length[displ] = length;
+}
+
+void CSRRep2D::Write::setCentroid(int cell, float x, float y)
+{
+    _centroid[cell] = {x,y};
+}
+
+CSRRep2D::Write writeAccess(CSRRep2D &csr, sycl::handler &h)
+{
+    return CSRRep2D::Write(csr._buf, h);
+}
