@@ -94,7 +94,7 @@ void SquareTriCSRMesh::setIndices()
         h.single_task<ah_shit>([=,nRows = this->_nRows, nCols = this->_nCols]()
         {
 
-            int32_t displ = 0;
+            //int32_t displ = 0;
         // Sets displacements and neighbor indices in a highly ineffecient way
         // that can in no way be parallelized.
         for (int i = 0; i < nRows; ++i)
@@ -110,37 +110,37 @@ void SquareTriCSRMesh::setIndices()
 
                 //areaWrite[lower] = area;
                 csrWrite.setArea(lower, area);
-                csrWrite.setDispl(lower, displ);
+                csrWrite.setDispl(lower, dLower);
                 csrWrite.setCentroid(lower, j * width + lCentroid[0], i * height + lCentroid[1]);
 
                 if (j != 0)
-                    csrWrite.setNbr(displ++, lower - 1, height);
+                    csrWrite.setNbr(dLower, lower - 1, height);
                 else
-                    csrWrite.setNbr(displ++, lGhost(i), height);
-                csrWrite.setNbr(displ++, lower + 1, hyp);
+                    csrWrite.setNbr(dLower, lGhost(i), height);
+                csrWrite.setNbr(dLower + 1, lower + 1, hyp);
                 if (i != nRows - 1)
-                    csrWrite.setNbr(displ++, lower + (2 * nCols + 1), width);
+                    csrWrite.setNbr(dLower + 2, lower + (2 * nCols + 1), width);
                 else
-                    csrWrite.setNbr(displ++, dGhost(j), width);
+                    csrWrite.setNbr(dLower + 2, dGhost(j), width);
 
                 csrWrite.setArea(upper, area);
-                csrWrite.setDispl(upper, displ);
+                csrWrite.setDispl(upper, dUpper);
                 csrWrite.setCentroid(upper, j * width + uCentroid[0], i * height + uCentroid[1]);
 
-                csrWrite.setNbr(displ++, upper - 1, hyp);
+                csrWrite.setNbr(dUpper, upper - 1, hyp);
                 if (j != nCols - 1)
-                    csrWrite.setNbr(displ++, upper + 1, height);
+                    csrWrite.setNbr(dUpper+1, upper + 1, height);
                 else
-                    csrWrite.setNbr(displ++, rGhost(i), height);
+                    csrWrite.setNbr(dUpper+1, rGhost(i), height);
                 if (i != 0)
-                    csrWrite.setNbr(displ++, upper - (2 * nCols + 1), width);
+                    csrWrite.setNbr(dUpper+2, upper - (2 * nCols + 1), width);
                 else
-                    csrWrite.setNbr(displ++, uGhost(j), width);
+                    csrWrite.setNbr(dUpper+2, uGhost(j), width);
             }
         }
 
         // Cap
-        csrWrite.setDispl(2 * nRows * nCols, displ);
+        csrWrite.setDispl(2 * nRows * nCols, 6*nRows*nCols);
         });
     });
 }
