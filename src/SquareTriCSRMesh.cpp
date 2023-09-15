@@ -91,13 +91,16 @@ void SquareTriCSRMesh::setIndices()
 
         auto areaWrite = area_buf.get_access<sycl::access::mode::write>(h);
 
-        h.single_task<ah_shit>([=,nRows = this->_nRows, nCols = this->_nCols]()
+        auto r = sycl::range(_nRows);
+
+        //h.single_task<ah_shit>([=,nRows = this->_nRows, nCols = this->_nCols]()
+        h.parallel_for(r, [=,nRows = this->_nRows, nCols = this->_nCols](int i)
         {
 
             //int32_t displ = 0;
         // Sets displacements and neighbor indices in a highly ineffecient way
         // that can in no way be parallelized.
-        for (int i = 0; i < nRows; ++i)
+      //  for (int i = 0; i < nRows; ++i)
         {
             for (int j = 0; j < nCols; ++j)
             {
