@@ -8,6 +8,8 @@
 
 #include <sycl.hpp>
 
+namespace PDE{
+
 
 /*
    Mesh of triangles on a square for some reason. Stored in CSR format 
@@ -51,14 +53,21 @@ _nCols(nCols)
 */
 SquareTriCSRMesh::~SquareTriCSRMesh() {}
 
+
+class ah_shit;
+
 void SquareTriCSRMesh::setIndices()
 {
 
     sycl::queue q(sycl::cpu_selector_v);
 
+    auto areas_span = getAllAreas();
+    std::vector<float>areas(areas_span.begin(), areas_span.end());
+
+    sycl::buffer<float> area_buf(&areas[0], areas.size());
+
     q.submit([&](sycl::handler &h)
     {
-        int32_t displ = 0;
         int32_t const totCells = 2 * _nRows * _nCols;
 
         float const height = 1.0 / _nRows;
@@ -69,26 +78,37 @@ void SquareTriCSRMesh::setIndices()
         sycl::vec<float, 2> const uCentroid = {2.0f * width / 3.0f, 2.0f * height / 3.0f};
 
         // Lambdas for getting the ghost point indices
-        auto lGhost = [&](int32_t row)
-        { return totCells + _nCols + 2 * row; };
-        auto rGhost = [&](int32_t row)
-        { return totCells + _nCols + 2 * row + 1; };
-        auto uGhost = [&](int32_t col)
+        auto lGhost = [=,nCols = _nCols](int32_t row)
+        { return totCells + nCols + 2 * row; };
+        auto rGhost = [=,nCols = _nCols](int32_t row)
+        { return totCells + nCols + 2 * row + 1; };
+        auto uGhost = [=](int32_t col)
         { return totCells + col; };
-        auto dGhost = [&](int32_t col)
-        { return totCells + _nCols + 2 * _nRows + col; };
+        auto dGhost = [=,nCols = _nCols, nRows = _nRows](int32_t col)
+        { return totCells + nCols + 2 * nRows + col; };
 
         Write csrWrite(_buf, h);
 
+        auto areaWrite = area_buf.get_access<sycl::access::mode::write>(h);
+
+        h.single_task<ah_shit>([=,nRows = this->_nRows, nCols = this->_nCols]()
+        {
+
+            int32_t displ = 0;
         // Sets displacements and neighbor indices in a highly ineffecient way
         // that can in no way be parallelized.
-        for (int i = 0; i < _nRows; ++i)
+        for (int i = 0; i < nRows; ++i)
         {
-            for (int j = 0; j < _nCols; ++j)
+            for (int j = 0; j < nCols; ++j)
             {
-                int const lower = 2 * (i * _nCols + j);
-                int const upper = 2 * (i * _nCols + j) + 1;
+                int const lower = 2 * (i * nCols + j);
+                int const upper = 2 * (i * nCols + j) + 1;
 
+                //Each cell has 3 neighbors, thanks to ghosts
+                int const dLower = 3 * lower;
+                int const dUpper = 3 * upper;
+
+                //areaWrite[lower] = area;
                 csrWrite.setArea(lower, area);
                 csrWrite.setDispl(lower, displ);
                 csrWrite.setCentroid(lower, j * width + lCentroid[0], i * height + lCentroid[1]);
@@ -98,8 +118,8 @@ void SquareTriCSRMesh::setIndices()
                 else
                     csrWrite.setNbr(displ++, lGhost(i), height);
                 csrWrite.setNbr(displ++, lower + 1, hyp);
-                if (i != _nRows - 1)
-                    csrWrite.setNbr(displ++, lower + (2 * _nCols + 1), width);
+                if (i != nRows - 1)
+                    csrWrite.setNbr(displ++, lower + (2 * nCols + 1), width);
                 else
                     csrWrite.setNbr(displ++, dGhost(j), width);
 
@@ -108,19 +128,20 @@ void SquareTriCSRMesh::setIndices()
                 csrWrite.setCentroid(upper, j * width + uCentroid[0], i * height + uCentroid[1]);
 
                 csrWrite.setNbr(displ++, upper - 1, hyp);
-                if (j != _nCols - 1)
+                if (j != nCols - 1)
                     csrWrite.setNbr(displ++, upper + 1, height);
                 else
                     csrWrite.setNbr(displ++, rGhost(i), height);
                 if (i != 0)
-                    csrWrite.setNbr(displ++, upper - (2 * _nCols + 1), width);
+                    csrWrite.setNbr(displ++, upper - (2 * nCols + 1), width);
                 else
                     csrWrite.setNbr(displ++, uGhost(j), width);
             }
         }
 
         // Cap
-        csrWrite.setDispl(2 * _nRows * _nCols, displ);
+        csrWrite.setDispl(2 * nRows * nCols, displ);
+        });
     });
 }
 
@@ -156,4 +177,5 @@ void SquareTriCSRMesh::printMatrix()
             std::cout << "\n";
         }
     }
+}
 }

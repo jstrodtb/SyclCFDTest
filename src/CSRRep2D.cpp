@@ -5,6 +5,8 @@
 
 #include <sycl.hpp>
 
+namespace PDE{
+
 struct CSRRep2D::Data{
     Data(int32_t numInteriorCells, int32_t numGhostCells, int32_t numConnections) :
     _numInteriorCells(numInteriorCells),
@@ -37,13 +39,28 @@ struct CSRRep2D::Data{
 CSRRep2D::
 CSRRep2D(int32_t numInteriorCells, int32_t numGhostCells, int32_t numConnections) :
 _data(new CSRRep2D::Data(numInteriorCells, numGhostCells, numConnections)),
-_buf{
-    {_data->_area.data(),     _data->_area.size()},
-    {_data->_displ.data(),    _data->_displ.size()},
-    {_data->_centroid.data(), _data->_centroid.size()},
-    {_data->_length.data(),   _data->_length.size()},
-    {_data->_nbrCell.data(),  _data->_nbrCell.size()}
-}
+_buf(  
+       _data->_area,
+       _data->_displ,
+       _data->_centroid,
+       _data->_length,
+       _data->_nbrCell
+)
+{}
+
+CSRRep2D::
+    Buffer::
+    Buffer(
+        std::vector<float> &area,
+        std::vector<int32_t> &displ,
+        std::vector<sycl::vec<float, 2>> &centroid,
+        std::vector<float> &length,
+        std::vector<int32_t> &nbrCell) :
+_area(area.data(), area.size()),
+_displ(displ.data(), displ.size()),
+_centroid(centroid.data(), centroid.size()),
+_length(length.data(), length.size()),
+_nbrCell(nbrCell.data(), nbrCell.size())
 {}
 
 
@@ -85,29 +102,38 @@ Write(Buffer &buf, sycl::handler &h)
 {
 }
 
-void CSRRep2D::Write::setDispl(int32_t cell, int32_t displ)
+/*
+void CSRRep2D::Write::setDispl(int32_t cell, int32_t displ) const
 {
     _displ[cell] = displ;
 }
 
-void CSRRep2D::Write::setArea(int32_t cell, float area)
+void CSRRep2D::Write::setArea(int32_t cell, float area) const
 {
 
     _area[cell] = area;
 }
 
-void CSRRep2D::Write::setNbr(int32_t displ, int32_t nbrCell, float length)
+void CSRRep2D::Write::setNbr(int32_t displ, int32_t nbrCell, float length) const
 {
     _nbrCell[displ] = nbrCell;
     _length[displ] = length;
 }
 
-void CSRRep2D::Write::setCentroid(int cell, float x, float y)
+void CSRRep2D::Write::setCentroid(int cell, float x, float y) const
 {
     _centroid[cell] = {x,y};
 }
+*/
 
 CSRRep2D::Write writeAccess(CSRRep2D &csr, sycl::handler &h)
 {
     return CSRRep2D::Write(csr._buf, h);
+}
+
+std::span<float> CSRRep2D::getAllAreas()
+{
+    return std::span<float>(_data->_area.begin(), _data->_area.end());
+}
+
 }

@@ -36,7 +36,7 @@ int testMesh()
 
     */
 
-    SquareTriCSRMesh mesh(3, 4);
+    PDE::SquareTriCSRMesh mesh(3, 4);
 
     auto nbr0 = mesh.getNbr(0);
     TEST_VALUE(nbr0[0], 28);

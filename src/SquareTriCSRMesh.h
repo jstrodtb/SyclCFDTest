@@ -1,8 +1,11 @@
+#pragma once
+
 #include "CSRRep2D.h"
 
 #include <memory>
 #include <span>
 
+namespace PDE{
 
 /*
    Mesh of triangles on a square for some reason. Stored in CSR format for edutainment purposes. Grid looks like this for 4x3:
@@ -40,3 +43,5 @@ private:
 
 //    std::unique_ptr<CSR> _csr;
 };
+
+}
