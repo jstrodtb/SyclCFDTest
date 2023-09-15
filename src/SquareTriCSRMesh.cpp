@@ -91,27 +91,22 @@ void SquareTriCSRMesh::setIndices()
 
         auto areaWrite = area_buf.get_access<sycl::access::mode::write>(h);
 
-        auto r = sycl::range(_nRows);
+        auto r = sycl::range<2>(_nRows, _nCols);
 
         //h.single_task<ah_shit>([=,nRows = this->_nRows, nCols = this->_nCols]()
-        h.parallel_for(r, [=,nRows = this->_nRows, nCols = this->_nCols](int i)
+        h.parallel_for(r, [=,nRows = this->_nRows, nCols = this->_nCols](sycl::item<2> ij)
         {
+                int32_t i = ij.get_id(0);
+                int32_t j = ij.get_id(1);
 
-            //int32_t displ = 0;
-        // Sets displacements and neighbor indices in a highly ineffecient way
-        // that can in no way be parallelized.
-      //  for (int i = 0; i < nRows; ++i)
-        {
-            for (int j = 0; j < nCols; ++j)
-            {
                 int const lower = 2 * (i * nCols + j);
                 int const upper = 2 * (i * nCols + j) + 1;
 
-                //Each cell has 3 neighbors, thanks to ghosts
+                // Each cell has 3 neighbors, thanks to ghosts
                 int const dLower = 3 * lower;
                 int const dUpper = 3 * upper;
 
-                //areaWrite[lower] = area;
+                // areaWrite[lower] = area;
                 csrWrite.setArea(lower, area);
                 csrWrite.setDispl(lower, dLower);
                 csrWrite.setCentroid(lower, j * width + lCentroid[0], i * height + lCentroid[1]);
@@ -132,14 +127,13 @@ void SquareTriCSRMesh::setIndices()
 
                 csrWrite.setNbr(dUpper, upper - 1, hyp);
                 if (j != nCols - 1)
-                    csrWrite.setNbr(dUpper+1, upper + 1, height);
+                    csrWrite.setNbr(dUpper + 1, upper + 1, height);
                 else
-                    csrWrite.setNbr(dUpper+1, rGhost(i), height);
+                    csrWrite.setNbr(dUpper + 1, rGhost(i), height);
                 if (i != 0)
-                    csrWrite.setNbr(dUpper+2, upper - (2 * nCols + 1), width);
+                    csrWrite.setNbr(dUpper + 2, upper - (2 * nCols + 1), width);
                 else
-                    csrWrite.setNbr(dUpper+2, uGhost(j), width);
-            }
+                    csrWrite.setNbr(dUpper + 2, uGhost(j), width);
         }
 
         // Cap
