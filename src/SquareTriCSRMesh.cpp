@@ -69,6 +69,8 @@ void SquareTriCSRMesh::setIndices()
     q.submit([&](sycl::handler &h)
     {
         int32_t const totCells = 2 * _nRows * _nCols;
+        auto const nCols = _nCols;
+        auto const nRows = _nRows;
 
         float const height = 1.0 / _nRows;
         float const width = 1.0 / _nCols;
@@ -78,14 +80,35 @@ void SquareTriCSRMesh::setIndices()
         sycl::vec<float, 2> const uCentroid = {2.0f * width / 3.0f, 2.0f * height / 3.0f};
 
         // Lambdas for getting the ghost point indices
-        auto lGhost = [=,nCols = _nCols](int32_t row)
+        auto lGhost = [=](int32_t row)
         { return totCells + nCols + 2 * row; };
-        auto rGhost = [=,nCols = _nCols](int32_t row)
+        auto rGhost = [=](int32_t row)
         { return totCells + nCols + 2 * row + 1; };
         auto uGhost = [=](int32_t col)
         { return totCells + col; };
-        auto dGhost = [=,nCols = _nCols, nRows = _nRows](int32_t col)
+        auto dGhost = [=](int32_t col)
         { return totCells + nCols + 2 * nRows + col; };
+
+        auto lNbr0 = [=](int32_t lower, int32_t i, int32_t j)
+        { return (j != 0) * (lower-1) + (1- (j!=0)) * lGhost(i); };
+        auto lNbr2 = [=](int32_t lower, int32_t i, int32_t j)
+        {
+            return (i != nRows - 1) * (lower + (2 * nCols + 1)) + 
+            (1-(i!=nRows-1)) * dGhost(j);
+        };
+
+        auto uNbr1 = [=](int32_t upper, int32_t i, int32_t j)
+        {
+                return (j != nCols - 1) * (upper + 1) + 
+                (1 - (j!=nCols-1)) *  rGhost(i);
+        };
+
+        auto uNbr2 = [=](int32_t upper, int32_t i, int32_t j)
+        {
+            return (i != 0) * (upper - (2 * nCols + 1))
+                + (1-(i != 0)) * uGhost(j);
+        };
+    
 
         Write csrWrite(_buf, h);
 
@@ -96,8 +119,8 @@ void SquareTriCSRMesh::setIndices()
         //h.single_task<ah_shit>([=,nRows = this->_nRows, nCols = this->_nCols]()
         h.parallel_for(r, [=,nRows = this->_nRows, nCols = this->_nCols](sycl::item<2> ij)
         {
-                int32_t i = ij.get_id(0);
-                int32_t j = ij.get_id(1);
+                int32_t const i = ij.get_id(0);
+                int32_t const j = ij.get_id(1);
 
                 int const lower = 2 * (i * nCols + j);
                 int const upper = 2 * (i * nCols + j) + 1;
@@ -111,35 +134,35 @@ void SquareTriCSRMesh::setIndices()
                 csrWrite.setDispl(lower, dLower);
                 csrWrite.setCentroid(lower, j * width + lCentroid[0], i * height + lCentroid[1]);
 
-                if (j != 0)
-                    csrWrite.setNbr(dLower, lower - 1, height);
-                else
-                    csrWrite.setNbr(dLower, lGhost(i), height);
+                csrWrite.setNbr(dLower, lNbr0(lower,i,j), height);
                 csrWrite.setNbr(dLower + 1, lower + 1, hyp);
-                if (i != nRows - 1)
-                    csrWrite.setNbr(dLower + 2, lower + (2 * nCols + 1), width);
-                else
-                    csrWrite.setNbr(dLower + 2, dGhost(j), width);
+                csrWrite.setNbr(dLower + 2, lNbr2(lower,i,j), width);
 
                 csrWrite.setArea(upper, area);
                 csrWrite.setDispl(upper, dUpper);
                 csrWrite.setCentroid(upper, j * width + uCentroid[0], i * height + uCentroid[1]);
 
                 csrWrite.setNbr(dUpper, upper - 1, hyp);
-                if (j != nCols - 1)
-                    csrWrite.setNbr(dUpper + 1, upper + 1, height);
-                else
-                    csrWrite.setNbr(dUpper + 1, rGhost(i), height);
-                if (i != 0)
-                    csrWrite.setNbr(dUpper + 2, upper - (2 * nCols + 1), width);
-                else
-                    csrWrite.setNbr(dUpper + 2, uGhost(j), width);
-        }
+                csrWrite.setNbr(dUpper+1, uNbr1(upper,i,j), height);
+                csrWrite.setNbr(dUpper+2, uNbr2(upper,i,j), width);
+        });
 
-        // Cap
+
+       });
+    
+    // Cap
+    q.submit([&](sycl::handler &h)
+    {
+        Write csrWrite(_buf, h);
+
+        h.single_task([=,nRows = this->_nRows, nCols = this->_nCols](){
         csrWrite.setDispl(2 * nRows * nCols, 6*nRows*nCols);
         });
     });
+ 
+ 
+
+
 }
 
 void SquareTriCSRMesh::setBoundary()
