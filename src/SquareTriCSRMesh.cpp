@@ -66,19 +66,22 @@ void SquareTriCSRMesh::setIndices()
 
     sycl::buffer<float> area_buf(&areas[0], areas.size());
 
+    auto const nCols = _nCols;
+    auto const nRows = _nRows;
+
+    float const height = 1.0 / _nRows;
+    float const width = 1.0 / _nCols;
+
+    sycl::vec<float, 2> const lCentroid = {width / 3.0f, height / 3.0f};
+    sycl::vec<float, 2> const uCentroid = {2.0f * width / 3.0f, 2.0f * height / 3.0f};
+
     q.submit([&](sycl::handler &h)
     {
         int32_t const totCells = 2 * _nRows * _nCols;
-        auto const nCols = _nCols;
-        auto const nRows = _nRows;
-
         float const height = 1.0 / _nRows;
         float const width = 1.0 / _nCols;
         float const hyp = sqrt(height * height + width * width);
         float const area = 0.5 * height * width;
-        sycl::vec<float, 2> const lCentroid = {width / 3.0f, height / 3.0f};
-        sycl::vec<float, 2> const uCentroid = {2.0f * width / 3.0f, 2.0f * height / 3.0f};
-
         // Lambdas for getting the ghost point indices
         auto lGhost = [=](int32_t row)
         { return totCells + nCols + 2 * row; };
@@ -114,52 +117,84 @@ void SquareTriCSRMesh::setIndices()
 
         auto areaWrite = area_buf.get_access<sycl::access::mode::write>(h);
 
-        auto r = sycl::range<2>(_nRows, _nCols);
+        auto r = sycl::range<2>(nRows, nCols);
 
         //h.single_task<ah_shit>([=,nRows = this->_nRows, nCols = this->_nCols]()
-        h.parallel_for(r, [=,nRows = this->_nRows, nCols = this->_nCols](sycl::item<2> ij)
+        h.parallel_for(r, [=](sycl::item<2> ij)
         {
-                int32_t const i = ij.get_id(0);
-                int32_t const j = ij.get_id(1);
+            int32_t const i = ij.get_id(0);
+            int32_t const j = ij.get_id(1);
 
-                int const lower = 2 * (i * nCols + j);
-                int const upper = 2 * (i * nCols + j) + 1;
+            int const lower = 2 * (i * nCols + j);
+            int const upper = 2 * (i * nCols + j) + 1;
 
-                // Each cell has 3 neighbors, thanks to ghosts
-                int const dLower = 3 * lower;
-                int const dUpper = 3 * upper;
+            // Each cell has 3 neighbors, thanks to ghosts
+            int const dLower = 3 * lower;
+            int const dUpper = 3 * upper;
 
-                // areaWrite[lower] = area;
-                csrWrite.setArea(lower, area);
-                csrWrite.setDispl(lower, dLower);
-                csrWrite.setCentroid(lower, j * width + lCentroid[0], i * height + lCentroid[1]);
+            // areaWrite[lower] = area;
+            csrWrite.setArea(lower, area);
+            csrWrite.setDispl(lower, dLower);
+            csrWrite.setCentroid(lower, j * width + lCentroid[0], i * height + lCentroid[1]);
 
-                csrWrite.setNbr(dLower, lNbr0(lower,i,j), height);
-                csrWrite.setNbr(dLower + 1, lower + 1, hyp);
-                csrWrite.setNbr(dLower + 2, lNbr2(lower,i,j), width);
+            csrWrite.setNbr(dLower, lNbr0(lower,i,j), height);
+            csrWrite.setNbr(dLower + 1, lower + 1, hyp);
+            csrWrite.setNbr(dLower + 2, lNbr2(lower,i,j), width);
 
-                csrWrite.setArea(upper, area);
-                csrWrite.setDispl(upper, dUpper);
-                csrWrite.setCentroid(upper, j * width + uCentroid[0], i * height + uCentroid[1]);
+            csrWrite.setArea(upper, area);
+            csrWrite.setDispl(upper, dUpper);
+            csrWrite.setCentroid(upper, j * width + uCentroid[0], i * height + uCentroid[1]);
 
-                csrWrite.setNbr(dUpper, upper - 1, hyp);
-                csrWrite.setNbr(dUpper+1, uNbr1(upper,i,j), height);
-                csrWrite.setNbr(dUpper+2, uNbr2(upper,i,j), width);
+            csrWrite.setNbr(dUpper, upper - 1, hyp);
+            csrWrite.setNbr(dUpper+1, uNbr1(upper,i,j), height);
+            csrWrite.setNbr(dUpper+2, uNbr2(upper,i,j), width);
         });
+    });
 
-
-       });
-    
     // Cap
+    auto const nGhosts = numGhosts();
+    auto const nInterior = numInteriorCells();
+
     q.submit([&](sycl::handler &h)
     {
         Write csrWrite(_buf, h);
 
-        h.single_task([=,nRows = this->_nRows, nCols = this->_nCols](){
+        int32_t const lShift = nInterior + nCols;
+        int32_t const rShift = nInterior + nCols+1;
+
+        int32_t const uShift = nInterior;
+        int32_t const bShift = nInterior + nGhosts - nCols;
+
+
+        h.single_task([=]()
+        {
+            //Upper and lower ghosts
+            for(int j = 0; j < nCols; ++j)
+            {
+                csrWrite.setCentroid(uShift + j, j * width + uCentroid[0], -uCentroid[1]);
+                csrWrite.setCentroid(bShift + j, j * width + lCentroid[0], 1.0 + lCentroid[1]);
+            }
+
+            //Left and right ghosts
+            for(int i = 0; i < nRows; ++i)
+            {
+                csrWrite.setCentroid(lShift + 2*i, -lCentroid[0], i*lCentroid[1]);
+                csrWrite.setCentroid(rShift + 2*i, 1.0 + uCentroid[0], i * height + uCentroid[1]);
+            }
+ 
+        });
+ 
+    });
+ 
+    //Ghost points
+    q.submit([&](sycl::handler &h)
+    {
+        Write csrWrite(_buf, h);
+
+        h.single_task([=](){
         csrWrite.setDispl(2 * nRows * nCols, 6*nRows*nCols);
         });
     });
- 
  
 
 

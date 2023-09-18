@@ -37,8 +37,11 @@ public:
 
     std::span<float> getAllAreas();
 
+    std::span<sycl::vec<float, 2>> getAllCentroids();
+
     int32_t numInteriorCells() const;
     int32_t numNeighbors() const;
+    int32_t numGhosts() const;
 
 private:
    struct Data;

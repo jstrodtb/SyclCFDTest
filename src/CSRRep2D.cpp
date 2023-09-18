@@ -75,6 +75,13 @@ int32_t CSRRep2D::numInteriorCells() const
     return _data->_numInteriorCells;
 }
 
+int32_t CSRRep2D::numGhosts() const
+{
+    return _data->_numGhostCells;
+}
+
+
+
 int32_t CSRRep2D::numNeighbors() const
 {
     return _data ->_displ[_data->_numInteriorCells];
@@ -134,6 +141,11 @@ CSRRep2D::Write writeAccess(CSRRep2D &csr, sycl::handler &h)
 std::span<float> CSRRep2D::getAllAreas()
 {
     return std::span<float>(_data->_area.begin(), _data->_area.end());
+}
+
+std::span<sycl::vec<float,2>> CSRRep2D::getAllCentroids()
+{
+    return std::span<sycl::vec<float,2>>(_data->_centroid.begin(),_data->_centroid.end());
 }
 
 }
