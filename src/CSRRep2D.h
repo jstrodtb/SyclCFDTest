@@ -71,9 +71,15 @@ protected:
 
 public:
    static auto constexpr write = sycl::access::mode::write;
+   static auto constexpr read = sycl::access::mode::read;
 
    template<typename T> 
    using writeAccessor = decltype(std::declval<sycl::buffer<T>>().template get_access<write>(static_cast<sycl::handler &>(std::declval<sycl::handler &>())));
+
+   template<typename T> 
+   using readAccessor = decltype(std::declval<sycl::buffer<T>>().template get_access<read>(static_cast<sycl::handler &>(std::declval<sycl::handler &>())));
+
+
 
     class Write
     {
@@ -115,11 +121,39 @@ public:
         writeAccessor<int32_t> _nbrCell;
     };
 
-    friend CSRRep2D::Write writeAccess(CSRRep2D &csr, sycl::handler &h);
 
+    class Read
+    {
+    public:
+        Read(Buffer &buf, sycl::handler &h);
+
+        int32_t getDispl(int32_t cell) const
+        { return _displ[cell]; }
+
+        float gettArea(int32_t cell) const
+        { return _area[cell]; }
+
+        int32_t getNbr(int32_t displ) const
+        { return _nbrCell[displ]; }
+
+        sycl::vec<float,2> getCentroid(int32_t cell) const
+        {  return _centroid[cell]; }
+
+    private:
+        readAccessor<float> _area;
+        readAccessor<int32_t> _displ;
+        readAccessor<sycl::vec<float, 2>> _centroid;
+
+        readAccessor<float> _length;
+        readAccessor<int32_t> _nbrCell;
+    };
+
+    friend CSRRep2D::Write writeAccess(CSRRep2D &csr, sycl::handler &h);
+    friend CSRRep2D::Read readAccess(CSRRep2D &csr, sycl::handler &h);
 
 };
 
 CSRRep2D::Write writeAccess(CSRRep2D &csr, sycl::handler &h);
+CSRRep2D::Read  readAccess(CSRRep2D const &csr, sycl::handler &h);
 
 }

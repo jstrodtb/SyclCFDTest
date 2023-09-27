@@ -1,5 +1,6 @@
 #include "SquareTriCSRMesh.h"
 #include <iostream>
+#include <iomanip>
 
 #define TEST_VALUE(a,b)\
 if ((a) != (b))\
@@ -71,6 +72,25 @@ int testMesh()
 
 
     mesh.printMatrix();
+
+    auto centroids = mesh.getAllCentroids();
+
+    std::cout << std::setprecision(3);
+    for(int i = 24; i < 28; ++i )
+        std::cout << "(" << centroids[i][0] << "," << centroids[i][1] << ") ";
+    std::cout << "\n";
+
+    std::cout << "Utris:\n";
+    for (int i = 0; i < 3; ++i)
+    {
+        for(int j = 0; j < 4; ++j)
+            std::cout << "(" << centroids[2*(i*4+j)+1][0] << ", " << centroids[2*(i*4+j)+1][1] << ") ";
+        
+        std::cout << "(" << centroids[29 + 2*i][0] << ", " << centroids[29 + 2*i][1] << ") ";
+        std::cout << "\n";
+
+
+    }
 
     return 0;
 }

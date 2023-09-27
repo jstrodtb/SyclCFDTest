@@ -95,8 +95,8 @@ std::span<int32_t> CSRRep2D::getNbr(int32_t cell) const
     return {&(_data->_nbrCell[displ]), len};
 }
 
-/*
-* Setters
+
+/* Setters
 */
 CSRRep2D::Write::
 Write(Buffer &buf, sycl::handler &h) 
@@ -108,6 +108,19 @@ Write(Buffer &buf, sycl::handler &h)
 
 {
 }
+
+CSRRep2D::Read::
+Read(Buffer &buf, sycl::handler &h) 
+: _area(buf._area.get_access<read>(h)),
+  _displ(buf._displ.get_access<read>(h)),
+  _centroid(buf._centroid.get_access<read>(h)),
+  _length(buf._length.get_access<read>(h)),
+  _nbrCell(buf._nbrCell.get_access<read>(h))
+
+{
+}
+
+
 
 /*
 void CSRRep2D::Write::setDispl(int32_t cell, int32_t displ) const
@@ -146,6 +159,11 @@ std::span<float> CSRRep2D::getAllAreas()
 std::span<sycl::vec<float,2>> CSRRep2D::getAllCentroids()
 {
     return std::span<sycl::vec<float,2>>(_data->_centroid.begin(),_data->_centroid.end());
+}
+
+CSRRep2D::Read readAccess(CSRRep2D  &csr, sycl::handler &h)
+{
+    return CSRRep2D::Read(csr._buf, h);
 }
 
 }

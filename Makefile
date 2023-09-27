@@ -1,4 +1,7 @@
 SHELL := /bin/bash
+
+CPPFILES :=  ./src/test.cpp ./src/CSRRep2D.cpp ./src/SquareTriCSRMesh.cpp  ./src/gradient.cpp
+
 sycl:
 	echo "Building default"
 #	source /opt/intel/oneapi/setvars.sh
@@ -10,7 +13,7 @@ cuda:
 
 test-cuda:
 	echo "Building test"
-	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS ./src/test.cpp ./src/CSRRep2D.cpp ./src/SquareTriCSRMesh.cpp  -o ./bin/test-cuda
+	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS ${CPPFILES}  -o ./bin/test-cuda
 
 test-sycl:
 	echo "Building test"
