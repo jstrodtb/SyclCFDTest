@@ -8,6 +8,38 @@
 
 namespace PDE{
 
+    template<typename T, typename Iterator> 
+    struct span
+    {
+        Iterator first;
+        Iterator last;
+ 
+        T &operator[](int i)
+        { return *(first + i); }
+
+        T const &operator[](int i) const
+        { return *(first + i); }
+
+        Iterator begin()
+        { return first; }
+
+        Iterator end()
+        { return last; }
+
+        int size()
+        { return std::distance(first, last); }
+   };
+
+    template<typename Iterator>
+    span <std::remove_reference_t<decltype(*std::declval<Iterator>())>,Iterator> 
+    makeSpan(Iterator begin, Iterator end)
+    {
+        using T =  
+        std::remove_reference_t<decltype(*std::declval<Iterator>())>;
+
+        return span<T, Iterator>{begin, end};
+    }
+
 /**
  * Basic form of a 2D CSR representation, ready for PDE solving.
  * Ghost cells, boundaries, etc, all incorporated;
@@ -133,11 +165,20 @@ public:
         float gettArea(int32_t cell) const
         { return _area[cell]; }
 
-        int32_t getNbr(int32_t displ) const
-        { return _nbrCell[displ]; }
+//        int32_t getNbr(int32_t displ) const
+//        { return _nbrCell[displ]; }
 
         sycl::vec<float,2> getCentroid(int32_t cell) const
         {  return _centroid[cell]; }
+
+//        sycl::span<int32_t> getNbrs(int32_t cell) const
+//        { return {_nbrCell.get_pointer() + _displ[cell],  _nbrCell.get_pointer() + _displ[cell+1] }; }
+
+        auto getNbrs(int32_t cell) const
+        { return makeSpan(_nbrCell.begin() + _displ[cell],  _nbrCell.begin() + _displ[cell+1] ); }
+
+
+
 
     private:
         readAccessor<float> _area;

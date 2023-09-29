@@ -32,6 +32,15 @@ V      | --- | --- | --- | --- |
 Note the inversion of the y axis, done this way to make it easy on me
 */
 
+/*
+ lsq matrix:
+ 0: | 2x 3y
+    | 18x 19y
+    | 48x 49y
+    | 56x 56y
+
+*/
+
 /**
  * ctor
 */
@@ -155,6 +164,7 @@ void SquareTriCSRMesh::setIndices()
     auto const nGhosts = numGhosts();
     auto const nInterior = numInteriorCells();
 
+    // Ghosts
     q.submit([&](sycl::handler &h)
     {
         Write csrWrite(_buf, h);
