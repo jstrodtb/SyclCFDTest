@@ -71,7 +71,7 @@ int testMesh()
 
 
 
-    mesh.printMatrix();
+//    mesh.printMatrix();
 
     auto centroids = mesh.getAllCentroids();
 

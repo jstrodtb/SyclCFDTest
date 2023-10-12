@@ -176,7 +176,8 @@ void SquareTriCSRMesh::setIndices()
         int32_t const bShift = nInterior + nGhosts - nCols;
 
 
-        h.single_task([=]()
+        //Single task really isn't efficient at all, but i just want to get it done
+        h.single_task([=]() 
         {
             //Upper and lower ghosts
             for(int j = 0; j < nCols; ++j)
