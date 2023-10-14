@@ -6,6 +6,9 @@
 #include <oneapi/mkl.hpp>
 
 
+#define PRINTVALUE(x)\
+std::cout << #x << ": " << x << "\n";
+
 namespace PDE
 {        
     namespace sparse = oneapi::mkl::sparse;
@@ -154,11 +157,34 @@ namespace PDE
 
         auto matrange = _diffMat->get();
 
+        PRINTVALUE(matrange.colinds.size());
+        PRINTVALUE(matrange.values.size());
+        PRINTVALUE(nNbrs);
+
         auto eventColSet = 
-        q.parallel_for(sycl::range(nInterior), [=,csrRead = readAccess(csr)](int row){
+        q.submit([&](sycl::handler &h)
+        {
+            auto csrRead = readAccess(csr, h);
+        
+            h.parallel_for(sycl::range(nInterior), [=](int cell){
+                auto nbrs = csrRead.getNbrs(cell);
+                auto displ = csrRead.getDispl(cell);
+                auto cellXY = csrRead.getCentroid(cell);
 
+                for (int i = 0; auto nbr : nbrs)
+                {
+                    auto nbrXY = csrRead.getCentroid(nbr);
+                    
+                    matrange.colinds[2*(displ+i)] = 2*nbr;
+                    matrange.colinds[2*(displ+i)+1] = 2*nbr+1;
+
+                    matrange.values[2*(displ+i)] = nbrXY[0] - cellXY[0];
+                    matrange.values[2*(displ+i)+1] = nbrXY[1] - cellXY[1];
+
+                    ++i;
+                }
+            });
         });
-
 
         auto eventRowSet = 
         q.parallel_for(sycl::range(matrange.rowptr.size()), [=](int row)
@@ -179,6 +205,7 @@ namespace PDE
         */
 
         eventRowSet.wait();
+        eventColSet.wait();
 
         for(auto r : _diffMat->get().rowptr )
             std::cout << r << " ";

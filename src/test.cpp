@@ -149,9 +149,9 @@ int testMeshSmall()
 
     PDE::Gradient g(q, mesh);
 
-    for (auto r : g.getCSR()->get().rowptr)
-        std::cout << r << " ";
-    std::cout << "\n";
+    //for (auto r : g.getCSR()->get().rowptr)
+    //    std::cout << r << " ";
+    //std::cout << "\n";
 
     auto spans = g.getCSR()->get();
 
@@ -169,11 +169,29 @@ int testMeshSmall()
 
     for(int i = 0; i < spans.rowptr.size()-1; ++i )
     {
-        std::cout << i << ": " << rowptr[i] << " " << spans.rowptr[i];
+        for(int j = rowptr[i]; j < rowptr[i+1]; ++j)
+            std::cout << colinds[j] << " ";
         std::cout << "\n";
     }
 
+    std::cout << std::setprecision(3);
+    for(int i = 0; i < spans.rowptr.size()-1; ++i )
+    {
+        for(int j = rowptr[i]; j < rowptr[i+1]; ++j)
+            std::cout << values[j] << " ";
+        std::cout << "\n";
+    }
 
+    auto centroids = mesh.getAllCentroids();
+
+    std::cout << "cent 0: " << centroids[0][0] << " " << centroids[0][1] << "\n";
+    std::cout << "cent 3: " << centroids[3][0] << " " << centroids[3][1] << "\n";
+
+    sycl::float2 xy0 = {  1.0/3.0, 2.0/3.0 };
+    sycl::float2 xy3 = { -1.0/3.0, 2.0/3.0 };
+
+    TEST_VALUE( xy3[0] - xy0[0], values[0] );
+    TEST_VALUE( xy3[1] - xy0[1], values[1] );
 
     sycl::free(values, q);
     sycl::free(colinds, q);
