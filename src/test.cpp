@@ -1,6 +1,8 @@
 #include "SquareTriCSRMesh.h"
+#include "Gradient.h"
 #include <iostream>
 #include <iomanip>
+#include "CSRMatrix.h"
 
 #define TEST_VALUE(a,b)\
 if ((a) != (b))\
@@ -75,6 +77,7 @@ int testMesh()
 
     auto centroids = mesh.getAllCentroids();
 
+/*
     std::cout << std::setprecision(3);
     for(int i = 24; i < 28; ++i )
         std::cout << "(" << centroids[i][0] << "," << centroids[i][1] << ") ";
@@ -91,13 +94,98 @@ int testMesh()
 
 
     }
+*/
+    sycl::queue q(sycl::cpu_selector_v, sycl::property::queue::in_order());
+
+    PDE::Gradient g(q, mesh);
+
+    auto spans = g.getCSR()->get();
+
+    float *values     = sycl::malloc_host<float>(spans.values.size(), q);
+    int *colinds      = sycl::malloc_host<int32_t>(spans.colinds.size(), q);
+    int32_t *rowptr   = sycl::malloc_host<int32_t>(spans.rowptr.size(), q);
+
+    //q.wait();
+
+    q.copy<float>(values, spans.values.first, spans.values.size());
+    q.copy<int32_t>(colinds, spans.colinds.first, spans.colinds.size());
+    q.copy<int32_t>(rowptr, spans.rowptr.first, spans.rowptr.size());
+
+    q.wait();
+
+    //Test triangle 0
+    float h = 1.0/3.0;
+    float w = 1.0/4.0;
+
+    float x = w/3.0;
+    float y = 2.0 * h / 3.0;
+
+
+
+
+    //sycl::free(values, q);
+    //sycl::free(colinds, q);
+    sycl::free(rowptr, q);
+
+    return 0;
+}
+
+int testMeshSmall()
+{
+    /*
+       Build this mesh:
+
+          2    
+       | \ 1 | 
+     3 | 0 \ |  4
+       | --- | 
+          5    
+
+    */
+
+    PDE::SquareTriCSRMesh mesh(1, 1);
+
+    sycl::queue q(sycl::cpu_selector_v, sycl::property::queue::in_order());
+
+    PDE::Gradient g(q, mesh);
+
+    for (auto r : g.getCSR()->get().rowptr)
+        std::cout << r << " ";
+    std::cout << "\n";
+
+    auto spans = g.getCSR()->get();
+
+    float *values     = sycl::malloc_host<float>(spans.values.size(), q);
+    int *colinds      = sycl::malloc_host<int32_t>(spans.colinds.size(), q);
+    int32_t *rowptr   = sycl::malloc_host<int32_t>(spans.rowptr.size(), q);
+
+    q.wait();
+
+    q.copy<float>(spans.values.first, values, spans.values.size()).wait();
+    q.copy<int32_t>(spans.colinds.first, colinds, spans.colinds.size()).wait();
+    q.copy<int32_t>(spans.rowptr.first, rowptr, spans.rowptr.size()).wait();
+
+    q.wait();
+
+    for(int i = 0; i < spans.rowptr.size()-1; ++i )
+    {
+        std::cout << i << ": " << rowptr[i] << " " << spans.rowptr[i];
+        std::cout << "\n";
+    }
+
+
+
+    sycl::free(values, q);
+    sycl::free(colinds, q);
+    sycl::free(rowptr, q);
 
     return 0;
 }
 
 int main()
 {
-    RUN_TEST(testMesh());
+//    RUN_TEST(testMesh());
+    RUN_TEST(testMeshSmall());
 
     return 0;
 }

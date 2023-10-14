@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Span.h"
+
 #include <span>
 #include <cstdint>
 #include <memory>
@@ -7,38 +9,6 @@
 #include<sycl.hpp>
 
 namespace PDE{
-
-    template<typename T, typename Iterator> 
-    struct span
-    {
-        Iterator first;
-        Iterator last;
- 
-        T &operator[](int i)
-        { return *(first + i); }
-
-        T const &operator[](int i) const
-        { return *(first + i); }
-
-        Iterator begin()
-        { return first; }
-
-        Iterator end()
-        { return last; }
-
-        int size()
-        { return std::distance(first, last); }
-   };
-
-    template<typename Iterator>
-    span <std::remove_reference_t<decltype(*std::declval<Iterator>())>,Iterator> 
-    makeSpan(Iterator begin, Iterator end)
-    {
-        using T =  
-        std::remove_reference_t<decltype(*std::declval<Iterator>())>;
-
-        return span<T, Iterator>{begin, end};
-    }
 
 /**
  * Basic form of a 2D CSR representation, ready for PDE solving.

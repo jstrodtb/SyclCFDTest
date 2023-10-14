@@ -49,10 +49,10 @@ CSRRep2D(2*nRows*nCols, 2*(nRows+nCols), 6*nRows*nCols),
 _nRows(nRows),
 _nCols(nCols) 
 {
-    if (_nCols < 3 || _nRows <  3)
-    {
-        throw std::invalid_argument("Minimum grid size is 3x3");
-    }
+    //if (_nCols < 3 || _nRows <  3)
+    //{
+    //    throw std::invalid_argument("Minimum grid size is 3x3");
+    //}
     this->setIndices();
     this->setBoundary();
 }
@@ -62,8 +62,6 @@ _nCols(nCols)
 */
 SquareTriCSRMesh::~SquareTriCSRMesh() {}
 
-
-class ah_shit;
 
 void SquareTriCSRMesh::setIndices()
 {
