@@ -17,14 +17,11 @@ namespace PDE{
         oneapi::mkl::sparse::matmat_descr_t descr = nullptr;
     };
 
-
-    class WorkEstimation
+    struct TempBuffer
     {
-    public:
-        WorkEstimation(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, sycl::queue &q); 
-        ~WorkEstimation();
-
-        std::unique_ptr<DeviceMem<uint8_t>> tempBuffer;
+        DeviceMem<uint8_t> tempBuffer;
         sycl::event ev;
     };
+
+    TempBuffer estimateWork(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, sycl::queue &q);
 }
