@@ -9,10 +9,22 @@
 #define TEST_VALUE(a,b)\
 if ((a) != (b))\
 {\
-    std::cout << "Expected " << #a << " == " << #b << "\n";\
+    std::cout << std::setprecision(8);\
+    std::cout << "Expected " << #a << " == " << b << "\n";\
     std::cout << "Got " << #a << " == " << a << "\n\n";\
     return 1;\
 }
+
+#define TEST_FVALUE(a,b,tol)\
+if (std::abs(a - b) > tol)\
+{\
+    std::cout << std::setprecision(8);\
+    std::cout << "Expected " << #a << " == " << b << "\n";\
+    std::cout << "Got " << #a << " == " << a << "\n\n";\
+    return 1;\
+}
+
+
 
 #define RUN_TEST(a)\
 {\
@@ -137,13 +149,29 @@ int testMeshSmall()
     /*
        Build this mesh:
 
-           2    
-       | \ 1 | 4
-     3 | 0 \ | 
-       | --- | 
-         5    
+           2        
+       | \ 1 | 4    
+     3 | 0 \ |      
+       | --- |      
+         5          
 
+    Centroids:
+    0  (0.33, 0.67)
+    1  (0.67, 0.33)
+    2  (0.67,-0.33)
+    3  (-0.33, .67)
+    4  (1.33, 0.33)
+    5  (0.33, 1.33)
     */
+
+    std::vector<std::array<float,2>> cTest({ 
+      {1.0/3.0, 2.0/3.0}, 
+      {2.0/3.0, 1.0/3.0}, 
+      {2.0/3.0,-1.0/3.0}, 
+      {-1.0/3.0, 2.0/3.0}, 
+      {4.0/3.0, 1.0/3.0}, 
+      {1.0/3.0, 4.0/3.0}});
+ 
 
     PDE::SquareTriCSRMesh mesh(1, 1);
 
@@ -151,25 +179,23 @@ int testMeshSmall()
 
     PDE::Gradient g(q, mesh);
 
-    //for (auto r : g.getCSR()->get().rowptr)
-    //    std::cout << r << " ";
-    //std::cout << "\n";
-
     auto spans = g.getCSR()->get();
 
-    float *values     = sycl::malloc_host<float>(spans.values.size(), q);
-    int *colinds      = sycl::malloc_host<int32_t>(spans.colinds.size(), q);
-    int32_t *rowptr   = sycl::malloc_host<int32_t>(spans.rowptr.size(), q);
+    std::vector<float> values (spans.values.size());
+    std::vector<int> colinds  (spans.colinds.size());
+    std::vector<int32_t>  rowptr   (spans.rowptr.size());
 
     q.wait();
 
-    q.copy<float>(spans.values.first, values, spans.values.size()).wait();
-    q.copy<int32_t>(spans.colinds.first, colinds, spans.colinds.size()).wait();
-    q.copy<int32_t>(spans.rowptr.first, rowptr, spans.rowptr.size()).wait();
+    q.copy<float>(spans.values.first, values.data(), spans.values.size()).wait();
+    q.copy<int32_t>(spans.colinds.first, colinds.data(), spans.colinds.size()).wait();
+    q.copy<int32_t>(spans.rowptr.first, rowptr.data(), spans.rowptr.size()).wait();
 
     q.wait();
 
-    /*
+    auto centroids = mesh.getAllCentroids();
+
+#if 0
     for(int i = 0; i < spans.rowptr.size()-1; ++i )
     {
         for(int j = rowptr[i]; j < rowptr[i+1]; ++j)
@@ -184,15 +210,15 @@ int testMeshSmall()
             std::cout << values[j] << " ";
         std::cout << "\n";
     }
+#endif
 
 
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < centroids.size(); ++i)
     {
-      std::cout << "cent " << i << ": " << centroids[i][0] << " " << centroids[i][1] << "\n";
+        TEST_FVALUE(centroids[i][0], cTest[i][0], 0.0001);
+        TEST_FVALUE(centroids[i][1], cTest[i][1], 0.0001);
     }
-    */
 
-    auto centroids = mesh.getAllCentroids();
     TEST_VALUE( centroids[3][0] - centroids[0][0], values[0] );
     TEST_VALUE( centroids[3][1] - centroids[0][1], values[1] );
 
@@ -201,10 +227,6 @@ int testMeshSmall()
 
     TEST_VALUE( centroids[4][0] - centroids[1][0], values[8] );
     TEST_VALUE( centroids[4][1] - centroids[1][1], values[9] );
-
-    sycl::free(values, q);
-    sycl::free(colinds, q);
-    sycl::free(rowptr, q);
 
     return 0;
 }

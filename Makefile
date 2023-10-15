@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-CPPFILES := CSRRep2D.o SquareTriCSRMesh.o Gradient.o CSRMatrix.o
+CPPFILES := CSRRep2D.o SquareTriCSRMesh.o Gradient.o CSRMatrix.o MKLCSRMatrix.o SparseMatMat.o
 
 LIBS :=   -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_sycl -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
 
@@ -35,5 +35,10 @@ CSRRep2D.o: src/CSRRep2D.cpp src/CSRRep2D.h
 SquareTriCSRMesh.o: src/SquareTriCSRMesh.cpp src/SquareTriCSRMesh.h
 	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS -c ./src/SquareTriCSRMesh.cpp
 
+MKLCSRMatrix.o: src/MKLCSRMatrix.cpp src/MKLCSRMatrix.cpp
+	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS -c ./src/MKLCSRMatrix.cpp
+
+SparseMatMat.o: src/SparseMatMat.cpp src/SparseMatMat.cpp
+	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS -c ./src/SparseMatMat.cpp 
 
 

@@ -1,6 +1,8 @@
 #include "CSRRep2D.h"
 #include "Gradient.h"
 #include "CSRMatrix.h"
+#include "Memory.h"
+#include "MKLCSRMatrix.h"
 
 #include <sycl.hpp>
 #include <oneapi/mkl.hpp>
@@ -16,73 +18,6 @@ namespace PDE
     namespace sparse = oneapi::mkl::sparse;
     using oneapi::mkl::index_base::zero;
     using oneapi::mkl::index_base::one;
-
-    namespace{
-
-#if 1
-        struct spBlasStuff
-        {
-            sparse::matrix_handle_t handle;
-            sparse::matrix_view_descr view = sparse::matrix_view_descr::general;
-    
-            sycl::event init(CSRMatrix & matrix, sycl::queue &q, oneapi::mkl::vm::event_vector &&events = {})
-            {
-                handle = nullptr;
-                sparse::init_matrix_handle(&handle);
-                auto p = matrix.getPtr();
-
-                auto ev = sparse::set_csr_data(q, handle, matrix.numRows, matrix.numCols, zero, p.rowptr, p.colinds, p.values,
-                                        events);
-                //sycl::event ev;
-
-                return ev;
-            }
-
-        };
-#endif
-
-        template<typename T>
-        struct HostMem
-        {
-            HostMem(int size, sycl::queue &q) : _q(q)
-            {
-                _p = sycl::malloc_host<T>(size, _q);
-                
-                if (!_p)
-                    throw std::runtime_error("Failed to allocate USM memory");
-            }
-
-            ~HostMem()
-            {
-                sycl::free(_p, _q);
-            }
-
-            T * _p;
-            sycl::queue &_q;
-        };
-
-        template<typename T>
-        struct DeviceMem
-        {
-            DeviceMem(int size, sycl::queue &q) : _q(q)
-            {
-                _p = sycl::malloc_device<T>(size, _q);
-                
-                if (!_p)
-                    throw std::runtime_error("Failed to allocate USM memory");
-            }
-
-            ~DeviceMem()
-            {
-                sycl::free(_p, _q);
-            }
-
-            T * _p;
-            sycl::queue &_q;
-        };
-    }
-
-
 
     Gradient::Gradient(sycl::queue &q, CSRRep2D &csr)
     {
@@ -115,7 +50,7 @@ namespace PDE
         auto const nInterior = csr.numInteriorCells();
 
         _diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q ));
-        //_evalMat.reset(new CSRMatrix(nInterior * 2, nInterior * 2, nInterior * 4, q ));
+        _evalMat.reset(new CSRMatrix(nInterior * 2, nInterior * 2, nInterior * 4, q ));
 
 /*
         auto eventFill = 
@@ -178,8 +113,6 @@ namespace PDE
                 {
                     auto nbrXY = csrRead.getCentroid(nbr);
                     
-                    //matrange.colinds[2*(displ+i)] = 2*nbr;
-                    //matrange.colinds[2*(displ+i)+1] = 2*nbr+1;
                     matrange.colinds[2*(displ+i)] = 2*cell;
                     matrange.colinds[2*(displ+i)+1] = 2*cell+1;
 
@@ -197,93 +130,27 @@ namespace PDE
             matrange.rowptr[row] = 2*row;
         });
 
-/*
-        q.submit([&](sycl::handler &h)
-        {
-            //h.parallel_for(sycl::range(_diffMat->get().rowptr.size()), [matptr=_diffMat->getPtr()](sycl::item<1> row)
-            h.parallel_for(sycl::range(_diffMat->get().rowptr.size()), [matptr=_diffMat->get()](sycl::item<1> row)
-            {
-                matptr.rowptr[row] = 2*row;
-//                matptr.rowptr[row] = 255;
-            });
-        });
-        */
-
-        eventRowSet.wait();
-        eventColSet.wait();
-
-     //        eventFill.wait();
-
-
         auto &diffMat = *_diffMat;
         auto spans = diffMat.get();
         auto rowptr = spans.rowptr.first;
         auto colinds = spans.colinds.first;
         auto values = spans.values.first;
 
-        std::cout << "rowptr.size() =  " << spans.rowptr.size()  << "\n";
-        std::cout << "colinds.size() = " << spans.colinds.size() << "\n";
-        std::cout << "values.size() =  " << spans.values.size()  << "\n";
-        std::cout << "diffMat.numRows = " << diffMat.numRows << "\n";
-        std::cout << "diffMat.numCols = " << diffMat.numCols << "\n";
-        std::cout << "nGhosts = " << csr.numGhosts() << "\n";
-        std::cout << "nInterior = " << csr.numInteriorCells() << "\n";
 
-        for(auto r : spans.rowptr )
-            std::cout << r << " ";
-        std::cout << "\n";
+// Lose these eventually
+        eventRowSet.wait();
+        eventColSet.wait();
 
+        MKLCSRMatrix A(*_diffMat, q);
+        MKLCSRMatrix B(*_diffMat, q);
+        MKLCSRMatrix C(*_evalMat, q);
 
-        for(auto c : spans.colinds )
-            std::cout << c << " ";
-        std::cout << "\n";
-
-        std::vector<float> m (diffMat.numRows * diffMat.numCols, 0.0 );
-
-        for(int row = 0; row < diffMat.numRows; ++row)
-        {
-            for(int i = rowptr[row]; i < rowptr[row+1]; ++i)
-            {
-                auto c = colinds[i]; 
-
-                m[row*diffMat.numCols + c] = values[i];
-            }
-        }
-
-        std::cout << std::setprecision(3);
-        for (int i = 0; i < diffMat.numRows; ++i)
-        {
-            for (int j = 0; j < diffMat.numCols; ++j)
-                std::cout << m[i*diffMat.numCols + j] << " ";
-            std::cout << "\n";
-        }
-
-       
-
-
-
-
-
-#if 0
-        //sparse:set_csr_data(q, A, diffMat.numRows, diffMat.numCols, zero, rowptr, (int *)nullptr, (float *)nullptr);
-        q.wait();
-        sparse:set_csr_data(q, A, diffMat.numRows, diffMat.numCols, zero, rowptr, colinds, values);
-
-
-        sparse::matmat_descr_t descr = nullptr;
-        sparse::init_matmat_descr(&descr);
-
-        spBlasStuff A, B, C;
-
-        auto evA = A.init(*_diffMat, q, {eventFill, eventRowSet});
-        auto evB = B.init(*_diffMat, q, {eventFill, eventRowSet});
-        auto evC = C.init(*_evalMat, q);
-
-        // example descriptor for general
-        // C = A * B^T
+        // C = A^T * B
         auto opA = oneapi::mkl::transpose::trans;
         auto opB = oneapi::mkl::transpose::nontrans;
 
+        sparse::matmat_descr_t descr = nullptr;
+        sparse::init_matmat_descr(&descr);
         sparse::set_matmat_data(descr, A.view, opA, B.view, opB, C.view);
 
         //
@@ -296,7 +163,7 @@ namespace PDE
         auto sizeTempBuffer = sizeTempBufferMem._p;
 
         auto ev1_1 = sparse::matmat(q, A.handle, B.handle, C.handle, reqSize, descr, sizeTempBuffer,
-                                                 nullptr, {evA, evB, evC});
+                                                 nullptr, {A.ev, B.ev, C.ev});
         
         ev1_1.wait();        
         //sizetempbuffer now has the number of bytes we need to estimate the work buffer
@@ -326,7 +193,7 @@ namespace PDE
         auto ev2_3 = sparse::matmat(q, A.handle, B.handle, C.handle, reqCompute, descr, sizeTempBuffer2,
                                                  tempBuffer2, {ev2_1});
         
-#endif
+//#endif
     }
 
     CSRMatrix *
