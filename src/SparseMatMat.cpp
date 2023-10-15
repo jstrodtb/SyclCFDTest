@@ -8,14 +8,17 @@
 namespace PDE{
     namespace sparse = oneapi::mkl::sparse;
 
-
-WorkEstimation::WorkEstimation(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, 
+Descriptor::Descriptor(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, 
                      oneapi::mkl::transpose opA, oneapi::mkl::transpose opB, sycl::queue &q)
 {
-    sparse::matmat_descr_t descr = nullptr;
     sparse::init_matmat_descr(&descr);
     sparse::set_matmat_data(descr, A.view, opA, B.view, opB, C.view);
+}
 
+
+
+WorkEstimation::WorkEstimation(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, sycl::queue &q) 
+{
 
     // Stage 1:  work estimation
     //
@@ -26,7 +29,7 @@ WorkEstimation::WorkEstimation(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C
 
     HostMem<int64_t> sizeTempBuffer(1, q);
 
-    auto ev1_1 = sparse::matmat(q, A.handle, B.handle, C.handle, req, descr, sizeTempBuffer._p,
+    auto ev1_1 = sparse::matmat(q, A.handle, B.handle, C.handle, req, d.descr, sizeTempBuffer._p,
                                              nullptr, {A.ev, B.ev, C.ev});
 
     // Step 1.2
@@ -37,7 +40,7 @@ WorkEstimation::WorkEstimation(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C
 
     // Step 1.3  do work_estimation
     req = oneapi::mkl::sparse::matmat_request::work_estimation;
-    ev  = oneapi::mkl::sparse::matmat(q, A.handle, B.handle, C.handle, req, descr, sizeTempBuffer._p,
+    ev  = oneapi::mkl::sparse::matmat(q, A.handle, B.handle, C.handle, req, d.descr, sizeTempBuffer._p,
                                       (void *)tempBuffer->_p, {ev1_1});
 }
 
