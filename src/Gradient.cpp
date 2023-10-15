@@ -4,6 +4,8 @@
 
 #include <sycl.hpp>
 #include <oneapi/mkl.hpp>
+#include <iostream>
+#include <iomanip>
 
 
 #define PRINTVALUE(x)\
@@ -13,6 +15,7 @@ namespace PDE
 {        
     namespace sparse = oneapi::mkl::sparse;
     using oneapi::mkl::index_base::zero;
+    using oneapi::mkl::index_base::one;
 
     namespace{
 
@@ -175,8 +178,10 @@ namespace PDE
                 {
                     auto nbrXY = csrRead.getCentroid(nbr);
                     
-                    matrange.colinds[2*(displ+i)] = 2*nbr;
-                    matrange.colinds[2*(displ+i)+1] = 2*nbr+1;
+                    //matrange.colinds[2*(displ+i)] = 2*nbr;
+                    //matrange.colinds[2*(displ+i)+1] = 2*nbr+1;
+                    matrange.colinds[2*(displ+i)] = 2*cell;
+                    matrange.colinds[2*(displ+i)+1] = 2*cell+1;
 
                     matrange.values[2*(displ+i)] = nbrXY[0] - cellXY[0];
                     matrange.values[2*(displ+i)+1] = nbrXY[1] - cellXY[1];
@@ -207,11 +212,7 @@ namespace PDE
         eventRowSet.wait();
         eventColSet.wait();
 
-        for(auto r : _diffMat->get().rowptr )
-            std::cout << r << " ";
-        std::cout << "\n";
-
-//        eventFill.wait();
+     //        eventFill.wait();
 
 
         auto &diffMat = *_diffMat;
@@ -228,12 +229,45 @@ namespace PDE
         std::cout << "nGhosts = " << csr.numGhosts() << "\n";
         std::cout << "nInterior = " << csr.numInteriorCells() << "\n";
 
-        sparse::matrix_handle_t A = nullptr;
-        sparse::init_matrix_handle(&A);
+        for(auto r : spans.rowptr )
+            std::cout << r << " ";
+        std::cout << "\n";
+
+
+        for(auto c : spans.colinds )
+            std::cout << c << " ";
+        std::cout << "\n";
+
+        std::vector<float> m (diffMat.numRows * diffMat.numCols, 0.0 );
+
+        for(int row = 0; row < diffMat.numRows; ++row)
+        {
+            for(int i = rowptr[row]; i < rowptr[row+1]; ++i)
+            {
+                auto c = colinds[i]; 
+
+                m[row*diffMat.numCols + c] = values[i];
+            }
+        }
+
+        std::cout << std::setprecision(3);
+        for (int i = 0; i < diffMat.numRows; ++i)
+        {
+            for (int j = 0; j < diffMat.numCols; ++j)
+                std::cout << m[i*diffMat.numCols + j] << " ";
+            std::cout << "\n";
+        }
+
+       
+
+
+
+
 
 #if 0
         //sparse:set_csr_data(q, A, diffMat.numRows, diffMat.numCols, zero, rowptr, (int *)nullptr, (float *)nullptr);
-        sparse:set_csr_data(q, A, diffMat.numRows, diffMat.numCols, zero, rowptr, colinds, (float *)nullptr);
+        q.wait();
+        sparse:set_csr_data(q, A, diffMat.numRows, diffMat.numCols, zero, rowptr, colinds, values);
 
 
         sparse::matmat_descr_t descr = nullptr;

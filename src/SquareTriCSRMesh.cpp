@@ -79,8 +79,8 @@ void SquareTriCSRMesh::setIndices()
     float const height = 1.0 / _nRows;
     float const width = 1.0 / _nCols;
 
-    sycl::vec<float, 2> const lCentroid = {width / 3.0f, height / 3.0f};
-    sycl::vec<float, 2> const uCentroid = {2.0f * width / 3.0f, 2.0f * height / 3.0f};
+    sycl::vec<float, 2> const lCentroid = {width / 3.0f, 2.0f * height / 3.0f};
+    sycl::vec<float, 2> const uCentroid = {2.0f * width / 3.0f, height / 3.0f};
 
     q.submit([&](sycl::handler &h)
     {
@@ -181,16 +181,15 @@ void SquareTriCSRMesh::setIndices()
             for(int j = 0; j < nCols; ++j)
             {
                 csrWrite.setCentroid(uShift + j, j * width + uCentroid[0], -uCentroid[1]);
-                csrWrite.setCentroid(bShift + j, j * width + lCentroid[0], 1.0 + lCentroid[1]);
+                csrWrite.setCentroid(bShift + j, j * width + lCentroid[0], 2.0 - nRows * lCentroid[1]);
             }
 
             //Left and right ghosts
             for(int i = 0; i < nRows; ++i)
             {
-                csrWrite.setCentroid(lShift + 2*i, -lCentroid[0], i*lCentroid[1]);
-                csrWrite.setCentroid(rShift + 2*i, 1.0 + uCentroid[0], i * height + uCentroid[1]);
+                csrWrite.setCentroid(lShift + 2*i, -lCentroid[0], i*height + lCentroid[1]);
+                csrWrite.setCentroid(rShift + 2*i, 2.0 - nCols * uCentroid[0], i * height + uCentroid[1]);
             }
- 
         });
  
     });

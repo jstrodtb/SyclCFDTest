@@ -4,6 +4,8 @@
 #include <iomanip>
 #include "CSRMatrix.h"
 
+#include <oneapi/mkl.hpp>
+
 #define TEST_VALUE(a,b)\
 if ((a) != (b))\
 {\
@@ -135,11 +137,11 @@ int testMeshSmall()
     /*
        Build this mesh:
 
-          2    
-       | \ 1 | 
-     3 | 0 \ |  4
+           2    
+       | \ 1 | 4
+     3 | 0 \ | 
        | --- | 
-          5    
+         5    
 
     */
 
@@ -167,6 +169,7 @@ int testMeshSmall()
 
     q.wait();
 
+    /*
     for(int i = 0; i < spans.rowptr.size()-1; ++i )
     {
         for(int j = rowptr[i]; j < rowptr[i+1]; ++j)
@@ -175,23 +178,29 @@ int testMeshSmall()
     }
 
     std::cout << std::setprecision(3);
-    for(int i = 0; i < spans.rowptr.size()-1; ++i )
+    for(int i = 0; i < spans.rowptr.size(); ++i )
     {
         for(int j = rowptr[i]; j < rowptr[i+1]; ++j)
             std::cout << values[j] << " ";
         std::cout << "\n";
     }
 
+
+    for (int i = 0; i < 6; ++i)
+    {
+      std::cout << "cent " << i << ": " << centroids[i][0] << " " << centroids[i][1] << "\n";
+    }
+    */
+
     auto centroids = mesh.getAllCentroids();
+    TEST_VALUE( centroids[3][0] - centroids[0][0], values[0] );
+    TEST_VALUE( centroids[3][1] - centroids[0][1], values[1] );
 
-    std::cout << "cent 0: " << centroids[0][0] << " " << centroids[0][1] << "\n";
-    std::cout << "cent 3: " << centroids[3][0] << " " << centroids[3][1] << "\n";
+    TEST_VALUE( centroids[5][0] - centroids[0][0], values[4] );
+    TEST_VALUE( centroids[5][1] - centroids[0][1], values[5] );
 
-    sycl::float2 xy0 = {  1.0/3.0, 2.0/3.0 };
-    sycl::float2 xy3 = { -1.0/3.0, 2.0/3.0 };
-
-    TEST_VALUE( xy3[0] - xy0[0], values[0] );
-    TEST_VALUE( xy3[1] - xy0[1], values[1] );
+    TEST_VALUE( centroids[4][0] - centroids[1][0], values[8] );
+    TEST_VALUE( centroids[4][1] - centroids[1][1], values[9] );
 
     sycl::free(values, q);
     sycl::free(colinds, q);
