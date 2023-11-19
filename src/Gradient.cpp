@@ -3,6 +3,7 @@
 #include "CSRMatrix.h"
 #include "Memory.h"
 #include "MKLCSRMatrix.h"
+#include "SparseMatMat.h"
 
 #include <sycl.hpp>
 #include <oneapi/mkl.hpp>
@@ -17,7 +18,6 @@ namespace PDE
 {        
     namespace sparse = oneapi::mkl::sparse;
     using oneapi::mkl::index_base::zero;
-    using oneapi::mkl::index_base::one;
 
     Gradient::Gradient(sycl::queue &q, CSRRep2D &csr)
     {
@@ -50,7 +50,7 @@ namespace PDE
         auto const nInterior = csr.numInteriorCells();
 
         _diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q ));
-        _evalMat.reset(new CSRMatrix(nInterior * 2, nInterior * 2, nInterior * 4, q ));
+        _evalMat.reset(new CSRMatrix(nInterior * 2, q ));
 
 /*
         auto eventFill = 
@@ -149,49 +149,13 @@ namespace PDE
         auto opA = oneapi::mkl::transpose::trans;
         auto opB = oneapi::mkl::transpose::nontrans;
 
-        sparse::matmat_descr_t descr = nullptr;
-        sparse::init_matmat_descr(&descr);
-        sparse::set_matmat_data(descr, A.view, opA, B.view, opB, C.view);
+        Descriptor descr(A, B, C, opA, opB, q);
 
-        //
-        // Stage 1:  work estimation
-        //
 
-        //work estimation
-        auto reqSize = sparse::matmat_request::get_work_estimation_buf_size;
-        HostMem<int64_t> sizeTempBufferMem(1, q);
-        auto sizeTempBuffer = sizeTempBufferMem._p;
-
-        auto ev1_1 = sparse::matmat(q, A.handle, B.handle, C.handle, reqSize, descr, sizeTempBuffer,
-                                                 nullptr, {A.ev, B.ev, C.ev});
-        
-        ev1_1.wait();        
-        //sizetempbuffer now has the number of bytes we need to estimate the work buffer
-        HostMem<uint8_t> tempBufferMem (sizeTempBuffer[0], q);
-        void *tempBuffer = (void *)tempBufferMem._p;
-
-        auto reqWork = sparse::matmat_request::work_estimation;
-
-        //Estimates work...don't know what value this even has
-        auto ev1_3 = sparse::matmat(q, A.handle, B.handle, C.handle, reqWork, descr, sizeTempBuffer,
-                                                 tempBuffer, {ev1_1});
-
-        // Step 2.1 query size of compute temp buffer
-        auto reqComputeBuf = oneapi::mkl::sparse::matmat_request::get_compute_buf_size;
-        HostMem<int64_t> sizeTempBuffer2Mem(1, q);
-        auto sizeTempBuffer2 = sizeTempBuffer2Mem._p;
-
-        auto ev2_1 = sparse::matmat(q, A.handle, B.handle, C.handle, reqComputeBuf, descr, sizeTempBuffer2,
-                                                 nullptr, {ev1_3});
-
-        // Step 2.2 allocate temp buffer for compute
-        ev2_1.wait();
-        DeviceMem<uint8_t> tempBuffer2Mem(sizeTempBuffer2[0], q );
-        void *tempBuffer2 = (void *)tempBuffer2Mem._p;
-
-        auto reqCompute = sparse::matmat_request::compute;
-        auto ev2_3 = sparse::matmat(q, A.handle, B.handle, C.handle, reqCompute, descr, sizeTempBuffer2,
-                                                 tempBuffer2, {ev2_1});
+        auto estBuffer = estimateWork(A, B, C, descr, q);
+        auto workBuffer = getWorkBuffer(A, B, C, descr, estBuffer, q); 
+        auto evC = setupC(A, B, C, descr, workBuffer, q);
+        auto evEval = evaluate(A, B, C, descr, evC, q);
         
 //#endif
     }

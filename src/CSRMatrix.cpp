@@ -3,23 +3,33 @@
 
 namespace PDE
 {
-    CSRMatrix::CSRMatrix(int nRows, int nCols, int nValues, sycl::queue &q)
-    {
-        _p._q = &q;
 
-        this->numRows = nRows;
+    CSRMatrix::CSRMatrix() = default;
+
+    CSRMatrix::CSRMatrix(int nRows, sycl::queue &q)
+    : _q(&q) 
+    , numRows(nRows)   
+    , rowptr(DeviceMem<int32_t>(nRows + 1, q))
+    {}
+
+    CSRMatrix::CSRMatrix(int nRows, int nCols, int nValues, sycl::queue &q)
+    : CSRMatrix(nRows, q)
+    {
         this->numCols = nCols;
         this->numValues = nValues;
 
-        _p.colinds = sycl::malloc_device<int32_t>(nValues, *_p._q);
-        _p.rowptr = sycl::malloc_device<int32_t>(numRows + 1, *_p._q);
-        _p.values = sycl::malloc_device<float>(nValues, *_p._q);
+        colinds = DeviceMem<int32_t>(nValues, *_q);
+        values = DeviceMem<float>(nValues, *_q);
+    }
+
+    void CSRMatrix::resize(int nValues)
+    {
+        this->numValues = nValues;
+
+        colinds = DeviceMem<int32_t>(nValues, *_q);
+        values = DeviceMem<float>(nValues, *_q);
     }
 
     CSRMatrix::~CSRMatrix()
-    {
-        sycl::free(_p.colinds, *_p._q);
-        sycl::free(_p.rowptr,  *_p._q);
-        sycl::free(_p.values,  *_p._q);
-    }
+    {}
 }

@@ -7,6 +7,8 @@ namespace PDE{
         template<typename T>
         struct HostMem
         {
+            HostMem() = default;
+
             HostMem(int size, sycl::queue &q) : _q(&q)
             {
                 _p = sycl::malloc_host<T>(size, *_q);
@@ -16,7 +18,7 @@ namespace PDE{
             }
 
             ~HostMem()
-            { if(_p) sycl::free(_p, _q); }
+            { if(_p) sycl::free(_p,*_q); }
 
             T * _p = nullptr;
             sycl::queue *_q = nullptr;
@@ -25,7 +27,9 @@ namespace PDE{
         template<typename T>
         struct DeviceMem
         {
-            DeviceMem(int size, sycl::queue &q) : *_q(&q)
+            DeviceMem() = default;
+
+            DeviceMem(int size, sycl::queue &q) : _q(&q)
             {
                 _p = sycl::malloc_device<T>(size, *_q);
                 
@@ -34,7 +38,7 @@ namespace PDE{
             }
 
             ~DeviceMem()
-            { if(_p) sycl::free(_p, _q); }
+            { if(_p) sycl::free(_p, *_q); }
 
             T * _p = nullptr;
             sycl::queue *_q = nullptr;

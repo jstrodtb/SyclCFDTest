@@ -1,4 +1,6 @@
 #include "Span.h"
+#include "Memory.h"
+
 #include <cstdint>
 #include <sycl.hpp>
 
@@ -27,26 +29,36 @@ namespace PDE
             Span<int32_t, int32_t *> rowptr;
         };
 
-        Spans get()
+        Spans get() const
         {
-            return {makeSpan(_p.values, _p.values + numValues), 
-                    makeSpan(_p.colinds, _p.colinds + numValues),
-                    makeSpan(_p.rowptr, _p.rowptr + numRows + 1)};
+            return {makeSpan(values._p,  values._p + numValues), 
+                    makeSpan(colinds._p, colinds._p + numValues),
+                    makeSpan(rowptr._p,  rowptr._p + numRows + 1)};
         }
 
         Pointers getPtr()
         {
-            return _p;
+            return {values._p, colinds._p, rowptr._p, _q};
         }
+
+        CSRMatrix();
+
+        CSRMatrix(int nRows, sycl::queue &q);
 
         CSRMatrix(int nRows, int nCols, int nValues, sycl::queue &q);
 
         CSRMatrix(CSRMatrix const &other) = delete; // Non-copyable because of malloc/free semantics
-
         ~CSRMatrix();
+        
+        void resize(int newSize);
 
     private:
-        Pointers _p;
+        DeviceMem<float> values;
+        DeviceMem<int32_t> colinds;
+        DeviceMem<int32_t> rowptr;
+        sycl::queue *_q = nullptr;
+
+
     };
 }
 
