@@ -26,7 +26,7 @@ test-sycl:
 Gradient.o: src/Gradient.cpp src/Gradient.h
 	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS -c ./src/Gradient.cpp
 
-CSRMatrix.o: src/CSRMatrix.cpp src/CSRMatrix.h
+CSRMatrix.o: src/CSRMatrix.cpp src/CSRMatrix.h src/Memory.h
 	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS -c ./src/CSRMatrix.cpp
 
 CSRRep2D.o: src/CSRRep2D.cpp src/CSRRep2D.h

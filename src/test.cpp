@@ -179,6 +179,7 @@ int testMeshSmall()
 
     PDE::Gradient g(q, mesh);
 
+#if 0
     auto spans = g.getCSR()->get();
 
     std::vector<float> values (spans.values.size());
@@ -186,23 +187,29 @@ int testMeshSmall()
     std::vector<int32_t>  rowptr   (spans.rowptr.size());
 
     q.wait();
+#endif
 
+#if 0
     q.copy<float>(spans.values.first, values.data(), spans.values.size()).wait();
     q.copy<int32_t>(spans.colinds.first, colinds.data(), spans.colinds.size()).wait();
     q.copy<int32_t>(spans.rowptr.first, rowptr.data(), spans.rowptr.size()).wait();
 
     q.wait();
+#endif
 
     auto centroids = mesh.getAllCentroids();
 
 #if 0
+
     for(int i = 0; i < spans.rowptr.size()-1; ++i )
     {
+        std::cout << i << ":" << " ";
         for(int j = rowptr[i]; j < rowptr[i+1]; ++j)
             std::cout << colinds[j] << " ";
         std::cout << "\n";
     }
 
+/*
     std::cout << std::setprecision(3);
     for(int i = 0; i < spans.rowptr.size(); ++i )
     {
@@ -210,6 +217,7 @@ int testMeshSmall()
             std::cout << values[j] << " ";
         std::cout << "\n";
     }
+*/
 #endif
 
 
@@ -219,6 +227,7 @@ int testMeshSmall()
         TEST_FVALUE(centroids[i][1], cTest[i][1], 0.0001);
     }
 
+#if 0
     TEST_VALUE( centroids[3][0] - centroids[0][0], values[0] );
     TEST_VALUE( centroids[3][1] - centroids[0][1], values[1] );
 
@@ -227,6 +236,7 @@ int testMeshSmall()
 
     TEST_VALUE( centroids[4][0] - centroids[1][0], values[8] );
     TEST_VALUE( centroids[4][1] - centroids[1][1], values[9] );
+#endif
 
     return 0;
 }

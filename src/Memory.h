@@ -40,6 +40,20 @@ namespace PDE{
             ~DeviceMem()
             { if(_p) sycl::free(_p, *_q); }
 
+
+            DeviceMem<T>& operator=(DeviceMem<T> const &other) = delete;
+
+            DeviceMem<T>& operator=(DeviceMem<T> &&other)
+            {
+                this->_p = other._p;
+                this->_q = other._q;
+
+                other._p = nullptr;
+                //other._q = nullptr;
+
+                return *this;
+            }
+
             T * _p = nullptr;
             sycl::queue *_q = nullptr;
         };

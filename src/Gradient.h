@@ -13,7 +13,9 @@ namespace PDE
     public:
         Gradient(sycl::queue &q, CSRRep2D &csr);
         ~Gradient();
-   
+
+        void createDifferenceMatrix(sycl::queue &q, CSRRep2D &csr);
+
         CSRMatrix *getCSR();
 
     private:

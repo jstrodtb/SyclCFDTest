@@ -26,6 +26,69 @@ namespace PDE
 
     Gradient::~Gradient() = default;
 
+    void Gradient::createDifferenceMatrix(sycl::queue &q, CSRRep2D &csr)
+    {
+        //I just want to loop through every face of every cell and calculate all the differences.
+        //I don't have a face list
+        //I should create one
+        //There are two differences per face
+        //Two gradient components (I will deeply regret writing this in 2D)
+        //This is therefore a block diagonal where each block is rectangular
+        //Each block has height nNbrs[i], width of two
+        //Therefore the number of columns in the matrix = 2 * numInteriorCells
+        //Numberof rows = numNeighbors
+
+        auto const nNbrs = csr.numNeighbors();
+        auto const nInterior = csr.numInteriorCells();
+
+        _diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q));
+        //_diffMat.reset(new CSRMatrix(2*nNbrs, q));
+#if 0 
+
+        auto matptr = _diffMat->get();
+
+        q.submit([&](sycl::handler &h)
+        {
+            auto r = sycl::range(csr.numInteriorCells());
+            auto csrRead = readAccess(csr,h);
+
+
+            h.parallel_for(r, [=](sycl::item<1> cell)
+            {
+                auto nbrs = csrRead.getNbrs(cell);
+                auto displ = csrRead.getDispl(cell);
+                auto const centroid = csrRead.getCentroid(cell);
+
+                for (int i = 0; i < nbrs.size(); ++i)
+                {
+                    /*
+                    auto nbr = nbrs[i];
+                    auto centroidNbr = csrRead.getCentroid(nbr);
+
+                    matptr.values[2*(displ+i)]   = centroidNbr[0] - centroid[0]; 
+                    matptr.values[2*(displ+i)+1] = centroidNbr[1] - centroid[1]; 
+
+                    matptr.colinds[2*(displ+i)]   = 2 * cell; 
+                    matptr.colinds[2*(displ+i)+1] = 2 * cell + 1; 
+                    */
+                }
+            });
+        });
+
+        q.wait();
+
+/*
+        auto eventRowSet = 
+        q.parallel_for(sycl::range(matptr.rowptr.size()), [=](int row)
+        {
+            matptr.rowptr[row] = 2*row;
+        });
+
+        eventRowSet.wait();
+*/
+#endif
+    }
+
     void 
     Gradient::setupLSQ(sycl::queue &q, CSRRep2D &csr)
     {
@@ -36,9 +99,9 @@ namespace PDE
         // Plane is given by f(x,y) = ax + by + c;
         // Three coefficients
 
-        // Each matrix M_i  has a dimension of numNeighbors x 3, where each row looks like:
-        // [x y 1]
-        // Then we form a 3x3 matrix L equal to transpose(M_i) * M_i
+        // Each matrix M_i  has a dimension of numNeighbors x 2, where each row looks like:
+        // [dx dy]
+        // Then we form a 2x2 matrix L equal to transpose(M_i) * M_i
         //  The gradient operator is thus defined by L * transpose(M_i) applied to the function values on the stencil
 
         //auto matrixPtr = sycl::malloc_device<float> ( 2 * csr.numNeighbors(), q );
@@ -49,9 +112,14 @@ namespace PDE
         auto const nNbrs = csr.numNeighbors();
         auto const nInterior = csr.numInteriorCells();
 
-        _diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q ));
+        createDifferenceMatrix(q,csr);
+
+        //_diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q ));
         _evalMat.reset(new CSRMatrix(nInterior * 2, q ));
 
+        
+
+#if 0
 /*
         auto eventFill = 
         q.submit([&](sycl::handler &h)
@@ -157,7 +225,7 @@ namespace PDE
         auto evC = setupC(A, B, C, descr, workBuffer, q);
         auto evEval = evaluate(A, B, C, descr, evC, q);
         
-//#endif
+#endif
     }
 
     CSRMatrix *
