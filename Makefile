@@ -1,3 +1,6 @@
+# Simple makefile, need to replace with CMake at some point
+# test-cuda is the only currently relevant build target
+
 SHELL := /bin/bash
 
 CPPFILES := CSRRep2D.o SquareTriCSRMesh.o Gradient.o CSRMatrix.o MKLCSRMatrix.o SparseMatMat.o
