@@ -26,7 +26,7 @@ namespace PDE
 
     Gradient::~Gradient() = default;
 
-    void Gradient::createDifferenceMatrix(sycl::queue &q, CSRRep2D &csr)
+    void Gradient::createDifferenceMatrix(sycl::queue &q, CSRRep2D &mesh)
     {
         //I just want to loop through every face of every cell and calculate all the differences.
         //I don't have a face list
@@ -38,11 +38,53 @@ namespace PDE
         //Therefore the number of columns in the matrix = 2 * numInteriorCells
         //Numberof rows = numNeighbors
 
-        auto const nNbrs = csr.numNeighbors();
-        auto const nInterior = csr.numInteriorCells();
+        auto const nNbrs = mesh.numNeighbors();
+        auto const nInterior = mesh.numInteriorCells();
 
+        //matrix is nNbrs x 2*nInterior - same as rowptr size
+        //Number of values/colinds = 2 * nNbrs 
         _diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q));
-        //_diffMat.reset(new CSRMatrix(2*nNbrs, q));
+
+        q.wait();
+
+        //Fill in rowptr, we will have 2 entries for each neighbor, since this is 2D
+        q.submit([&](sycl::handler &h)
+        {
+            auto matspans = _diffMat->get();
+
+            auto r = sycl::range(matspans.rowptr.size());
+
+            h.parallel_for(r, [=](sycl::item<1> ptrIndex)
+            {
+                matspans.rowptr[ptrIndex] = 2 * ptrIndex;
+            });
+        });
+
+        q.wait();
+
+        //Next we fill in colinds - should look like 0 1, 0 1, 0 1, 2, 3, 2, 3, 2, 3...etc
+        //The number of repeats is equal to the number of neighbors a cell has
+        q.submit([&](sycl::handler &h)
+        {
+            auto rMesh = readAccess(mesh, h);
+            auto matspans = _diffMat->get();
+
+            auto r = sycl::range(nInterior);
+
+            h.parallel_for(r, [=](sycl::item<1> cell)
+            {
+                for (int nbr = rMesh.getDispl(cell); nbr < rMesh.getDispl(cell+1); ++nbr)
+                {
+                    matspans.colinds[matspans.rowptr[nbr]]  = 2*cell;
+                    matspans.colinds[matspans.rowptr[nbr]+1]  = 2*cell+1;
+                }
+            });
+        });
+
+        q.wait();
+ 
+
+
 #if 0 
 
         auto matptr = _diffMat->get();
