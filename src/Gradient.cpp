@@ -26,115 +26,76 @@ namespace PDE
 
     Gradient::~Gradient() = default;
 
-    void Gradient::createDifferenceMatrix(sycl::queue &q, CSRRep2D &mesh)
+    struct Gradient::DifferenceMatrix : public CSRMatrix
     {
-        //I just want to loop through every face of every cell and calculate all the differences.
-        //I don't have a face list
-        //I should create one
-        //There are two differences per face
-        //Two gradient components (I will deeply regret writing this in 2D)
-        //This is therefore a block diagonal where each block is rectangular
-        //Each block has height nNbrs[i], width of two
-        //Therefore the number of columns in the matrix = 2 * numInteriorCells
-        //Numberof rows = numNeighbors
+        //std::unique_ptr<CSRMatrix> _diffMat;
 
-        auto const nNbrs = mesh.numNeighbors();
-        auto const nInterior = mesh.numInteriorCells();
-
-        //matrix is nNbrs x 2*nInterior - same as rowptr size
-        //Number of values/colinds = 2 * nNbrs 
-        _diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q));
-
-        q.wait();
-
-        //Fill in rowptr, we will have 2 entries for each neighbor, since this is 2D
-        q.submit([&](sycl::handler &h)
+        DifferenceMatrix(sycl::queue &q, CSRRep2D &mesh)
+        : CSRMatrix(mesh.numNeighbors(), 2*mesh.numInteriorCells(), 2 * mesh.numNeighbors(), q)
         {
-            auto matspans = _diffMat->get();
+            //I just want to loop through every face of every cell and calculate all the differences.
+            //I don't have a face list
+            //I should create one
+            //There are two differences per face
+            //Two gradient components (I will deeply regret writing this in 2D)
+            //This is therefore a block diagonal where each block is rectangular
+            //Each block has height nNbrs[i], width of two
+            //Therefore the number of columns in the matrix = 2 * numInteriorCells
+            //Numberof rows = numNeighbors
 
-            auto r = sycl::range(matspans.rowptr.size());
+            auto const nNbrs = mesh.numNeighbors();
+            auto const nInterior = mesh.numInteriorCells();
 
-            h.parallel_for(r, [=](sycl::item<1> ptrIndex)
+            //matrix is nNbrs x 2*nInterior - same as rowptr size
+            //Number of values/colinds = 2 * nNbrs 
+            //_diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q));
+
+            //Fill in rowptr, we will have 2 entries for each neighbor, since this is 2D
+            auto evSetRowPtr = 
+            q.submit([&](sycl::handler &h)
             {
-                matspans.rowptr[ptrIndex] = 2 * ptrIndex;
-            });
-        });
+                auto matspans = this->get();
 
-        q.wait();
+                auto r = sycl::range(matspans.rowptr.size());
 
-        //Next we fill in colinds - should look like 0 1, 0 1, 0 1, 2, 3, 2, 3, 2, 3...etc
-        //The number of repeats is equal to the number of neighbors a cell has
-        q.submit([&](sycl::handler &h)
-        {
-            auto rMesh = readAccess(mesh, h);
-            auto matspans = _diffMat->get();
-
-            auto r = sycl::range(nInterior);
-
-            h.parallel_for(r, [=](sycl::item<1> cell)
-            {
-                auto const nbrCells = rMesh.getNbrs(cell);
-
-                for (int i = 0, displ = rMesh.getDispl(cell); displ < rMesh.getDispl(cell+1); ++displ, ++i)
+                h.parallel_for(r, [=](sycl::item<1> ptrIndex)
                 {
-                    matspans.colinds[matspans.rowptr[displ]]  = 2*cell;
-                    matspans.colinds[matspans.rowptr[displ]+1]  = 2*cell+1;
-
-                    int nbr = nbrCells[i];
-
-                    matspans.values[matspans.rowptr[displ]]  = rMesh.getCentroid(nbr)[0] - rMesh.getCentroid(cell)[0];
-                    matspans.values[matspans.rowptr[displ]+1]  = rMesh.getCentroid(nbr)[1] - rMesh.getCentroid(cell)[1];
-                }
+                    matspans.rowptr[ptrIndex] = 2 * ptrIndex;
+                });
             });
-        });
 
-        q.wait();
-
-#if 0 
-
-        auto matptr = _diffMat->get();
-
-        q.submit([&](sycl::handler &h)
-        {
-            auto r = sycl::range(csr.numInteriorCells());
-            auto csrRead = readAccess(csr,h);
-
-
-            h.parallel_for(r, [=](sycl::item<1> cell)
+            //Next we fill in colinds - should look like 0 1, 0 1, 0 1, 2, 3, 2, 3, 2, 3...etc
+            //The number of repeats is equal to the number of neighbors a cell has
+            q.submit([&](sycl::handler &h)
             {
-                auto nbrs = csrRead.getNbrs(cell);
-                auto displ = csrRead.getDispl(cell);
-                auto const centroid = csrRead.getCentroid(cell);
+                h.depends_on(evSetRowPtr);
 
-                for (int i = 0; i < nbrs.size(); ++i)
+                auto rMesh = readAccess(mesh, h);
+                auto matspans = this->get();
+
+                auto r = sycl::range(nInterior);
+
+                h.parallel_for(r, [=](sycl::item<1> cell)
                 {
-                    /*
-                    auto nbr = nbrs[i];
-                    auto centroidNbr = csrRead.getCentroid(nbr);
+                    auto const nbrCells = rMesh.getNbrs(cell);
 
-                    matptr.values[2*(displ+i)]   = centroidNbr[0] - centroid[0]; 
-                    matptr.values[2*(displ+i)+1] = centroidNbr[1] - centroid[1]; 
+                    for (int i = 0, displ = rMesh.getDispl(cell); displ < rMesh.getDispl(cell+1); ++displ, ++i)
+                    {
+                        matspans.colinds[matspans.rowptr[displ]]  = 2*cell;
+                        matspans.colinds[matspans.rowptr[displ]+1]  = 2*cell+1;
 
-                    matptr.colinds[2*(displ+i)]   = 2 * cell; 
-                    matptr.colinds[2*(displ+i)+1] = 2 * cell + 1; 
-                    */
-                }
+                        int nbr = nbrCells[i];
+
+                        matspans.values[matspans.rowptr[displ]]  = rMesh.getCentroid(nbr)[0] - rMesh.getCentroid(cell)[0];
+                        matspans.values[matspans.rowptr[displ]+1]  = rMesh.getCentroid(nbr)[1] - rMesh.getCentroid(cell)[1];
+                    }
+                });
             });
-        });
 
-        q.wait();
+            q.wait();
+        }
 
-/*
-        auto eventRowSet = 
-        q.parallel_for(sycl::range(matptr.rowptr.size()), [=](int row)
-        {
-            matptr.rowptr[row] = 2*row;
-        });
-
-        eventRowSet.wait();
-*/
-#endif
-    }
+    };
 
     void 
     Gradient::setupLSQ(sycl::queue &q, CSRRep2D &csr)
@@ -159,7 +120,8 @@ namespace PDE
         auto const nNbrs = csr.numNeighbors();
         auto const nInterior = csr.numInteriorCells();
 
-        createDifferenceMatrix(q,csr);
+        //createDifferenceMatrix(q,csr);
+        _diffMat.reset(new DifferenceMatrix(q, csr));
 
         //_diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q ));
         _evalMat.reset(new CSRMatrix(nInterior * 2, q ));

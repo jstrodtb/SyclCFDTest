@@ -7,7 +7,9 @@ namespace PDE
 
     class Gradient
     {
-        std::unique_ptr<CSRMatrix> _diffMat;
+        struct DifferenceMatrix; 
+
+        std::unique_ptr<DifferenceMatrix> _diffMat;
         std::unique_ptr<CSRMatrix> _evalMat;
 
     public:
