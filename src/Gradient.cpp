@@ -73,17 +73,22 @@ namespace PDE
 
             h.parallel_for(r, [=](sycl::item<1> cell)
             {
-                for (int nbr = rMesh.getDispl(cell); nbr < rMesh.getDispl(cell+1); ++nbr)
+                auto const nbrCells = rMesh.getNbrs(cell);
+
+                for (int i = 0, displ = rMesh.getDispl(cell); displ < rMesh.getDispl(cell+1); ++displ, ++i)
                 {
-                    matspans.colinds[matspans.rowptr[nbr]]  = 2*cell;
-                    matspans.colinds[matspans.rowptr[nbr]+1]  = 2*cell+1;
+                    matspans.colinds[matspans.rowptr[displ]]  = 2*cell;
+                    matspans.colinds[matspans.rowptr[displ]+1]  = 2*cell+1;
+
+                    int nbr = nbrCells[i];
+
+                    matspans.values[matspans.rowptr[displ]]  = rMesh.getCentroid(nbr)[0] - rMesh.getCentroid(cell)[0];
+                    matspans.values[matspans.rowptr[displ]+1]  = rMesh.getCentroid(nbr)[1] - rMesh.getCentroid(cell)[1];
                 }
             });
         });
 
         q.wait();
- 
-
 
 #if 0 
 
