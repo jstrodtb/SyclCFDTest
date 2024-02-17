@@ -34,6 +34,25 @@ if (std::abs(a - b) > tol)\
         std::cout << #a << " passed." << "\n";\
 }
 
+void printMatrix(int nRows, int nCols, std::vector<int> const &rowptr, std::vector<int> const &colinds, std::vector<float> &values)
+{
+    std::vector<float> matrix(nRows * nCols);
+
+    for(int i = 0; i < nRows; ++i)
+    {
+        std::cout << std::setprecision(8) << std::setw(15) << std::left;
+        for (int j = 0; j < colinds[rowptr[i]]; ++j)
+            std::cout << "0.00000000" << " ";
+
+        for(int c = rowptr[i]; c < rowptr[i+1]; ++c)
+        {
+            std::cout << std::setw(15) << std::left << values[c] << " ";
+        }
+        std::cout << "\n";
+    }
+
+}
+
 int testMesh()
 {
     /*
@@ -179,7 +198,7 @@ int testMeshSmall()
 
     PDE::Gradient g(q, mesh);
 
-#if 0
+#if 1
     auto spans = g.getCSR()->get();
 
     std::vector<float> values (spans.values.size());
@@ -189,13 +208,14 @@ int testMeshSmall()
     q.wait();
 #endif
 
-#if 0
+#if 1
     q.copy<float>(spans.values.first, values.data(), spans.values.size()).wait();
     q.copy<int32_t>(spans.colinds.first, colinds.data(), spans.colinds.size()).wait();
     q.copy<int32_t>(spans.rowptr.first, rowptr.data(), spans.rowptr.size()).wait();
 
     q.wait();
 #endif
+    printMatrix(g.getCSR()->numRows, g.getCSR()->numCols, rowptr, colinds, values);
 
     auto centroids = mesh.getAllCentroids();
 
