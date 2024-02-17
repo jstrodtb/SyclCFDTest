@@ -43,19 +43,20 @@ estimateWork(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, s
     //   allocate temp buffer for work_estimation
     ev1_1.wait();
 
-    DeviceMem<uint8_t> estimateBuffer(sizeEstimateBuffer._p[0], q);
+    EstimateBuffer e{DeviceMem<uint8_t>(sizeEstimateBuffer._p[0], q), sycl::event()};
 
     // Step 1.3  do work_estimation
     req = oneapi::mkl::sparse::matmat_request::work_estimation;
-    auto ev  = oneapi::mkl::sparse::matmat(q, A.handle, B.handle, C.handle, req, d.descr, sizeEstimateBuffer._p,
-                                      (void *)estimateBuffer._p, {ev1_1});
+    e.event  = oneapi::mkl::sparse::matmat(q, A.handle, B.handle, C.handle, req, d.descr, sizeEstimateBuffer._p,
+                                      (void *)e.estimateBuffer._p, {ev1_1});
 
-    return {estimateBuffer, ev};
+    return e;
 }
 
-WorkBuffer getWorkBuffer(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, 
+void getWorkBuffer(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, 
                          EstimateBuffer &eb, sycl::queue &q)
 {
+#if 0    
      //
         // Stage 2:  compute
         //
@@ -72,6 +73,7 @@ WorkBuffer getWorkBuffer(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Desc
         DeviceMem<uint8_t> workBuffer (sizeWorkBuffer._p[0], q);
 
         return {sizeWorkBuffer, workBuffer, event};
+#endif
 }
 
 sycl::event setupC(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, 

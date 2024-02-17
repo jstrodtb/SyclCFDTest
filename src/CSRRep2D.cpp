@@ -80,8 +80,6 @@ int32_t CSRRep2D::numGhosts() const
     return _data->_numGhostCells;
 }
 
-
-
 int32_t CSRRep2D::numNeighbors() const
 {
     return _data ->_displ[_data->_numInteriorCells];

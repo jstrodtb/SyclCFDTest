@@ -34,7 +34,7 @@ namespace PDE{
         sycl::event event;
     };
 
-    WorkBuffer getWorkBuffer(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, 
+   void getWorkBuffer(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, 
                          EstimateBuffer &eb, sycl::queue &q);
 
     sycl::event setupC(MKLCSRMatrix &A, MKLCSRMatrix &B, MKLCSRMatrix &C, Descriptor &d, WorkBuffer &wb, sycl::queue &q);

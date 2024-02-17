@@ -51,12 +51,16 @@ namespace PDE
         ~CSRMatrix();
         
         void resize(int newSize);
+    
+    protected:
+        void finalize(sycl::event ev);
 
     private:
         DeviceMem<float> values;
         DeviceMem<int32_t> colinds;
         DeviceMem<int32_t> rowptr;
         sycl::queue *_q = nullptr;
+        sycl::event _ev;
 
 
     };

@@ -26,6 +26,11 @@ namespace PDE
         //values = DeviceMem<float>(nValues, *_q);
     }
 
+    void CSRMatrix::finalize(sycl::event ev)
+    {
+        _ev = ev;
+    }
+
     void CSRMatrix::resize(int nValues)
     {
         this->numValues = nValues;

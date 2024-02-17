@@ -38,10 +38,10 @@ CSRRep2D.o: src/CSRRep2D.cpp src/CSRRep2D.h
 SquareTriCSRMesh.o: src/SquareTriCSRMesh.cpp src/SquareTriCSRMesh.h
 	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS -c ./src/SquareTriCSRMesh.cpp
 
-MKLCSRMatrix.o: src/MKLCSRMatrix.cpp src/MKLCSRMatrix.cpp
+MKLCSRMatrix.o: src/MKLCSRMatrix.cpp src/MKLCSRMatrix.h
 	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS -c ./src/MKLCSRMatrix.cpp
 
-SparseMatMat.o: src/SparseMatMat.cpp src/SparseMatMat.cpp
+SparseMatMat.o: src/SparseMatMat.cpp src/SparseMatMat.h src/Memory.h src/CSRMatrix.h
 	clang++ -g -std=c++20 -fsycl -fsycl-targets=nvptx64-nvidia-cuda,spir64_x86_64 -DSYCL_USE_NATIVE_FP_ATOMICS -c ./src/SparseMatMat.cpp 
 
 

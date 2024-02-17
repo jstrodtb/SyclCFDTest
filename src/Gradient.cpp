@@ -29,6 +29,7 @@ namespace PDE
     struct Gradient::DifferenceMatrix : public CSRMatrix
     {
         //std::unique_ptr<CSRMatrix> _diffMat;
+        sycl::event _ev;
 
         DifferenceMatrix(sycl::queue &q, CSRRep2D &mesh)
         : CSRMatrix(mesh.numNeighbors(), 2*mesh.numInteriorCells(), 2 * mesh.numNeighbors(), q)
@@ -66,7 +67,7 @@ namespace PDE
 
             //Next we fill in colinds - should look like 0 1, 0 1, 0 1, 2, 3, 2, 3, 2, 3...etc
             //The number of repeats is equal to the number of neighbors a cell has
-            q.submit([&](sycl::handler &h)
+            auto ev = q.submit([&](sycl::handler &h)
             {
                 h.depends_on(evSetRowPtr);
 
@@ -92,7 +93,7 @@ namespace PDE
                 });
             });
 
-            q.wait();
+            this->finalize(ev);
         }
 
     };
@@ -124,102 +125,15 @@ namespace PDE
         _diffMat.reset(new DifferenceMatrix(q, csr));
 
         //_diffMat.reset(new CSRMatrix(nNbrs, 2*nInterior, 2*nNbrs, q ));
-        _evalMat.reset(new CSRMatrix(nInterior * 2, q ));
+        _evalMat.reset(new CSRMatrix(nNbrs, q ));
 
-        
+        q.wait(); 
 
-#if 0
-/*
-        auto eventFill = 
-        q.submit([&](sycl::handler &h)
-        {
-            auto r = sycl::range(csr.numInteriorCells());
-            auto csrRead = readAccess(csr,h);
+        DifferenceMatrix diffMat2(q,csr);
 
-            auto matptr = _diffMat->get();
-
-            static_assert(std::is_same_v<decltype(matptr), CSRMatrix::Spans> == true);
-
-
-            h.parallel_for(r, [=](sycl::item<1> cell)
-            { 
-                auto nbrs = csrRead.getNbrs(cell);
-                auto displ = csrRead.getDispl(cell);
-                auto const centroid = csrRead.getCentroid(cell);
-
-                static_assert(std::is_same_v<decltype(matptr), CSRMatrix::Spans> == true);
-                static_assert(std::is_same_v<decltype(matptr.values), PDE::Span<float, float *>> == true);
-
-                //static_assert(std::is_const_v<decltype(matptr.values)>);
-                //float * values = matptr.values.first;
-
-                for(int i = 0; i < nbrs.size(); ++i)
-                {
-                    auto nbr = nbrs[i];
-                    auto centroidNbr = csrRead.getCentroid(nbr);
-
-                    matptr.values[2*(displ+i)] = centroidNbr[0] - centroid[0]; 
-                    matptr.values[2*(displ+i)+1] = centroidNbr[1] - centroid[1]; 
-
-                    matptr.colinds[2*(displ+i)] = 2 * nbr; 
-                    matptr.colinds[2*(displ+i)+1] = 2 * nbr + 1; 
-                }
-            });
-
-        });
-*/
-        q.wait();
-
-        auto matrange = _diffMat->get();
-
-        PRINTVALUE(matrange.colinds.size());
-        PRINTVALUE(matrange.values.size());
-        PRINTVALUE(nNbrs);
-
-        auto eventColSet = 
-        q.submit([&](sycl::handler &h)
-        {
-            auto csrRead = readAccess(csr, h);
-        
-            h.parallel_for(sycl::range(nInterior), [=](int cell){
-                auto nbrs = csrRead.getNbrs(cell);
-                auto displ = csrRead.getDispl(cell);
-                auto cellXY = csrRead.getCentroid(cell);
-
-                for (int i = 0; auto nbr : nbrs)
-                {
-                    auto nbrXY = csrRead.getCentroid(nbr);
-                    
-                    matrange.colinds[2*(displ+i)] = 2*cell;
-                    matrange.colinds[2*(displ+i)+1] = 2*cell+1;
-
-                    matrange.values[2*(displ+i)] = nbrXY[0] - cellXY[0];
-                    matrange.values[2*(displ+i)+1] = nbrXY[1] - cellXY[1];
-
-                    ++i;
-                }
-            });
-        });
-
-        auto eventRowSet = 
-        q.parallel_for(sycl::range(matrange.rowptr.size()), [=](int row)
-        {
-            matrange.rowptr[row] = 2*row;
-        });
-
-        auto &diffMat = *_diffMat;
-        auto spans = diffMat.get();
-        auto rowptr = spans.rowptr.first;
-        auto colinds = spans.colinds.first;
-        auto values = spans.values.first;
-
-
-// Lose these eventually
-        eventRowSet.wait();
-        eventColSet.wait();
-
+#if 1
         MKLCSRMatrix A(*_diffMat, q);
-        MKLCSRMatrix B(*_diffMat, q);
+        MKLCSRMatrix B(diffMat2, q);
         MKLCSRMatrix C(*_evalMat, q);
 
         // C = A^T * B
@@ -230,9 +144,11 @@ namespace PDE
 
 
         auto estBuffer = estimateWork(A, B, C, descr, q);
+        /*
         auto workBuffer = getWorkBuffer(A, B, C, descr, estBuffer, q); 
         auto evC = setupC(A, B, C, descr, workBuffer, q);
         auto evEval = evaluate(A, B, C, descr, evC, q);
+        */
         
 #endif
     }
